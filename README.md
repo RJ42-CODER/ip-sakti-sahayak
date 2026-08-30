@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # IP-SAKTI Sahayak (SIH26045)
 
 > **Ministry of Ayush — Smart India Hackathon 2026**  
@@ -20,3 +21,7 @@ Refer to the [/docs](./docs) directory for complete architecture and project tra
 - **Embeddings**: HuggingFace `sentence-transformers`
 - **LLM**: Gemini API Free Tier / Groq API
 - **Orchestration**: LangChain
+=======
+# ip-sakti-sahayak
+Multilingual, RAG-based AI assistant for IP &amp; regulatory guidance in Ayurveda — helps classify formulations and navigate Indian &amp; international IP law (patents, GI, trademarks) with source-cited answers. Built for SIH 2026 (PS: SIH26045, Ministry of AYUSH).
+>>>>>>> 765d589b7df6781cb8f4158241537d4789d9259b
