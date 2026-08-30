@@ -1,27 +1,118 @@
-<<<<<<< HEAD
-# IP-SAKTI Sahayak (SIH26045)
+# IP-SAKTI Sahayak
 
-> **Ministry of Ayush — Smart India Hackathon 2026**  
-> Multilingual RAG-based AI assistant for Intellectual Property & Regulatory Compliance for Ayurvedic products with statutory source citations.
+A multilingual, RAG-based AI assistant that answers Intellectual Property and 
+regulatory questions about Ayurvedic products, with every answer grounded in 
+and cited to real legal sources.
 
----
+Built for Smart India Hackathon 2026 — Problem Statement SIH26045, 
+Ministry of Ayush.
+
+## Problem
+
+Protecting and commercializing an Ayurvedic product requires navigating 
+overlapping legal regimes at once: patents, geographical indications, 
+trademarks, copyright, plant-variety rights, biodiversity access-and-benefit-
+sharing obligations, and drug-regulatory classification. No authoritative, 
+plain-language tool currently exists to guide practitioners, researchers, and 
+AYUSH startups through this.
+
+## What This Assistant Does
+
+- Classifies a described Ayurvedic product into one of six regulatory 
+  categories (classical medicine, patent-or-proprietary medicine, new drug, 
+  phytopharmaceutical, Ayurveda-Aahar/nutraceutical, or cosmetic)
+- Answers IP and regulatory questions with an explicit jurisdiction toggle, 
+  keeping Indian law and international law strictly separate
+- Cites the specific statute, section, or case relied on for every answer
+- States a confidence level and abstains rather than guesses when the 
+  underlying legal corpus does not cover a question
+- Flags when a question should be escalated to a human IP facilitator
+
+This is informational guidance only and does not constitute legal advice.
+
+## Tech Stack
+
+| Layer | Tool |
+|---|---|
+| Backend | FastAPI (Python) |
+| Frontend | React (Vite) |
+| Vector database | ChromaDB |
+| Embeddings | HuggingFace sentence-transformers (all-MiniLM-L6-v2) |
+| LLM | Gemini (free tier) / Groq |
+
+All tools used are free-tier by design.
+
+## Project Structure 
+<img width="584" height="386" alt="image" src="https://github.com/user-attachments/assets/cadc7746-568d-4e3e-bd34-2b9c8a4bd3ec" />
+
+## API Reference
+
+### POST /api/query
+
+Request:
+```json
+{
+  "question": "string",
+  "jurisdiction": "India" | "International"
+}
+```
+
+Response:
+```json
+{
+  "answer": "string",
+  "confidence": "High" | "Medium" | "Low",
+  "citations": [
+    { "source_name": "string", "section": "string", "url": "string" }
+  ],
+  "disclaimer": "This is informational guidance, not legal advice.",
+  "escalate_available": true
+}
+```
+
+### POST /api/classify
+
+Request:
+```json
+{
+  "description": "string"
+}
+```
+
+Response:
+```json
+{
+  "category": "string",
+  "confidence": "High" | "Medium" | "Low"
+}
+```
+
+## Setup
+
+### Backend
+cd backend
+
+pip install -r requirements.txt 
+
+cp .env.example .env 
+
+uvicorn app.main:app --reload  
+
+### Frontend
+
+cd frontend 
+
+npm install 
+
+cp .env.example .env 
+
+npm run dev
 
 ## Documentation
-Refer to the [/docs](./docs) directory for complete architecture and project tracking:
-- [CODEBASE_MAP.md](./docs/CODEBASE_MAP.md) — Directory map, tech stack, and endpoint registry.
-- [DECISIONS.md](./docs/DECISIONS.md) — Technical decisions & architecture rationale log.
-- [walkthrough.md](./docs/walkthrough.md) — Chronological development work log.
 
----
+See the `docs/` folder for the full codebase map, the reasoning behind each 
+technical decision, and a chronological build log.
 
-## Tech Stack (100% Free-Tier)
-- **Backend**: FastAPI (Python)
-- **Frontend**: React / Vite
-- **Vector DB**: ChromaDB (Local self-hosted)
-- **Embeddings**: HuggingFace `sentence-transformers`
-- **LLM**: Gemini API Free Tier / Groq API
-- **Orchestration**: LangChain
-=======
-# ip-sakti-sahayak
-Multilingual, RAG-based AI assistant for IP &amp; regulatory guidance in Ayurveda — helps classify formulations and navigate Indian &amp; international IP law (patents, GI, trademarks) with source-cited answers. Built for SIH 2026 (PS: SIH26045, Ministry of AYUSH).
->>>>>>> 765d589b7df6781cb8f4158241537d4789d9259b
+## Team
+
+Smart India Hackathon 2026 — Ministry of Ayush, Problem Statement SIH26045
