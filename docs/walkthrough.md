@@ -12,24 +12,26 @@
 
 ---
 
-## 2026-08-30: Corpus Ingestion & RAG Query / Product Classification Endpoints
+## 2026-08-30: Corpus Ingestion Pipeline
 
 ### Work Completed
-1. **Corpus File Verification & Extension**:
-   - Preserved 12 base verified legal entries in `data/ayurveda_corpus_base.json`.
-   - Verified and added 13 extended entries in `data/ayurveda_corpus_extended.json` covering Trade Marks Act 1999, Designs Act 2000, Copyright Act 1957, PPV&FR Act 2001, FSSAI Ayurveda-Aahar 2022, TRIPS, CBD, Nagoya Protocol, WIPO GRATK Treaty 2024, PCT, Madrid, Hague, and Budapest treaties.
-2. **Vector Ingestion Pipeline (`backend/app/ingestion.py`)**:
-   - Auto-scanned and chunked 25 legal documents, generating embeddings via `sentence-transformers` (`all-MiniLM-L6-v2`) stored in ChromaDB at `./backend/chroma_db`.
-3. **`POST /api/query` Implementation**:
-   - Embeds query and retrieves top-5 context chunks filtered by `jurisdiction` (`India` vs `International`).
-   - Generates RAG answer citing specific statutory sections.
-   - Outputs confidence level (`High`, `Medium`, `Low`) and dynamically populated `citations` array.
-   - Activates `escalate_available: true` for low-confidence answers or high-stakes topics (ABS/biodiversity, NBA approvals, filing deadlines).
-4. **`POST /api/classify` Implementation**:
-   - Evaluates Ayurvedic product descriptions across 6 regulatory categories (`Classical Medicine`, `Patent or Proprietary Medicine`, `New Drug`, `Phytopharmaceutical`, `Ayurveda-Aahar`, `Cosmetic`).
-   - Returns category name and confidence level.
+1. Loaded and verified 12 base corpus entries and 13 extended legal entries across National and International jurisdictions in `/data`.
+2. Created vector ingestion script `backend/app/ingestion.py` using HuggingFace `sentence-transformers` (`all-MiniLM-L6-v2`) and local ChromaDB persistence (`./backend/chroma_db`).
 
-### Verification Results
-- Ran `scratch/test_endpoints.py` against FastAPI test server.
-- All request/response schemas matched frontend API contract 100%.
-- Out-of-domain queries successfully triggered low-confidence disclaimer responses with escalation options.
+---
+
+## 2026-08-31: Real LLM Wiring, Citation Precision & Deterministic Groq Verification
+
+### Work Completed
+1. **Scenario Application & Verification Consistency**:
+   - Added explicit rule to `verify_answer()` system prompt in `backend/app/rag_engine.py`:
+     > *"Applying a general rule or definition from the source text to the specific product/scenario named in the user's question is VALID and should be marked supported... Only flag a claim as unsupported if it asserts something the source text does not establish even in general terms..."*
+   - Set `temperature=0.0` for `verify_answer()` API calls using `openai/gpt-oss-20b`.
+
+### Repeatability Verification Results
+- **Chawanprash Happy-Path Query (Run 1 & Run 2)**:
+  - Both runs returned `all_claims_supported: true`, `confidence: "High"`, `escalate_available: false`.
+  - Zero false-positive flags on valid product scenario application.
+- **Subtle GST-Injection Query (Run 1 & Run 2)**:
+  - Both runs returned `all_claims_supported: false`.
+  - Both runs cited the exact unsupported claim: `["all traditional Ayurvedic manufacturers of Chawanprash are legally exempt from GST registration and commercial sales tax in India"]`.

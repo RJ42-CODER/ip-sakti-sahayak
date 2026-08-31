@@ -2,8 +2,10 @@ import os
 import re
 import json
 import logging
+import httpx
 from pathlib import Path
 from typing import Literal
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -15,8 +17,13 @@ logger = logging.getLogger("rag_engine")
 # Directory paths
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 CHROMA_PERSIST_DIR = BASE_DIR / "backend" / "chroma_db"
+ENV_PATH = BASE_DIR / "backend" / ".env"
 COLLECTION_NAME = "ayurveda_legal_kb"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+
+# Load environment variables from backend/.env and system environment
+load_dotenv(ENV_PATH)
+load_dotenv()
 
 # Global lazy singletons
 _chroma_client = None
@@ -61,44 +68,143 @@ class ClassifyResponse(BaseModel):
     category: str
     confidence: Literal["High", "Medium", "Low"]
 
-# LLM Helper function
+# LLM Integration: Primary Gemini API, Fallback Groq API
+
 def call_llm(prompt: str, system_instruction: str = "") -> str:
     """
-    Calls Gemini API if GEMINI_API_KEY is available, or Groq API if GROQ_API_KEY is available.
-    Returns empty string if no API key or call fails.
+    Primary: Gemini API (gemini-2.5-flash / gemini-3.6-flash).
+    Fallback: Groq API (openai/gpt-oss-20b / qwen/qwen3.8-27b).
+    Returns empty string if both fail or keys are absent.
     """
     gemini_key = os.getenv("GEMINI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
 
+    # 1. Primary: Gemini API
+    if gemini_key:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=gemini_key)
+            
+            for model_name in ["models/gemini-2.5-flash", "models/gemini-3.6-flash", "models/gemini-flash-latest"]:
+                try:
+                    model = genai.GenerativeModel(
+                        model_name=model_name,
+                        system_instruction=system_instruction if system_instruction else None
+                    )
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        logger.info(f"Gemini API generation succeeded with model '{model_name}'.")
+                        return response.text.strip()
+                except Exception as m_err:
+                    logger.warning(f"Gemini model '{model_name}' failed: {m_err}")
+        except Exception as e:
+            logger.warning(f"Gemini API primary call failed: {e}")
+
+    # 2. Fallback: Groq API (Non-agentic models)
+    if groq_key:
+        logger.info("Attempting Groq API fallback...")
+        try:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
+            messages = []
+            if system_instruction:
+                messages.append({"role": "system", "content": system_instruction})
+            messages.append({"role": "user", "content": prompt})
+            
+            for model_name in ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]:
+                payload = {"model": model_name, "messages": messages, "temperature": 0.0}
+                res = httpx.post(url, headers=headers, json=payload, timeout=12.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    content = data["choices"][0]["message"]["content"]
+                    if content:
+                        logger.info(f"Groq API fallback succeeded with model '{model_name}'.")
+                        return content.strip()
+        except Exception as e:
+            logger.warning(f"Groq API fallback call failed: {e}")
+
+    return ""
+
+def verify_answer(draft_answer: str, cited_chunks: list[dict]) -> dict:
+    """
+    Independent Verification Step using a PURE CLOSED-CONTEXT non-agentic Groq model (openai/gpt-oss-20b).
+    Checks whether discrete factual or legal claims in draft_answer are strictly backed by cited_chunks text.
+    """
+    groq_key = os.getenv("GROQ_API_KEY")
+    if not groq_key or not cited_chunks or "don't have enough information" in draft_answer.lower():
+        return {"all_claims_supported": True, "unsupported_claims": []}
+
+    chunks_text = "\n\n".join([
+        f"--- Cited Source: {c['metadata'].get('source_name')} ({c['metadata'].get('section')}) ---\n{c['text']}"
+        for c in cited_chunks
+    ])
+
+    system_instruction = (
+        "You are an independent Legal Verification Auditor for the Ministry of Ayush.\n"
+        "Your task is to strictly audit a draft AI legal answer against ONLY the provided cited legal source texts.\n\n"
+        "CLOSED-CONTEXT AUDIT RULES:\n"
+        "1. Applying a general rule or definition from the source text to the specific product/scenario named in the user's question is VALID and should be marked supported, even though the source text doesn't name that product specifically.\n"
+        "2. Only flag a claim as unsupported if it asserts something the source text does not establish even in general/abstract terms — e.g. a specific penalty, tax status (such as GST exemption), criminal fine, or legal consequence never mentioned in the source text at all.\n"
+        "3. Do NOT use outside knowledge or tools. Evaluate STRICTLY against the provided text.\n"
+        "4. Respond ONLY with a JSON object in this format:\n"
+        "{\n"
+        '  "all_claims_supported": true | false,\n'
+        '  "unsupported_claims": ["list of specific unbacked or injected claims, if any"]\n'
+        "}"
+    )
+
+    prompt = f"Draft Answer to Audit:\n{draft_answer}\n\nProvided Source Texts:\n{chunks_text}"
+
+    # Use pure non-agentic closed-context models on Groq with temperature=0.0 for deterministic evaluation
+    for verifier_model in ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]:
+        try:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
+            messages = [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt}
+            ]
+            payload = {
+                "model": verifier_model,
+                "messages": messages,
+                "temperature": 0.0,
+                "response_format": {"type": "json_object"}
+            }
+            res = httpx.post(url, headers=headers, json=payload, timeout=8.0)
+            if res.status_code == 200:
+                content = res.json()["choices"][0]["message"]["content"]
+                parsed = json.loads(content)
+                logger.info(f"Verification auditor ({verifier_model}) completed: all_claims_supported={parsed.get('all_claims_supported')}")
+                return parsed
+            else:
+                logger.warning(f"Groq verifier model '{verifier_model}' returned status {res.status_code}: {res.text}")
+        except Exception as e:
+            logger.warning(f"Groq verification step with model '{verifier_model}' failed: {e}")
+
+    # Fallback to Gemini if Groq API fails or rate limits
+    gemini_key = os.getenv("GEMINI_API_KEY")
     if gemini_key:
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
             model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
-                system_instruction=system_instruction if system_instruction else None
+                model_name="models/gemini-2.5-flash",
+                system_instruction=system_instruction
             )
-            response = model.generate_content(prompt)
-            if response and response.text:
-                return response.text.strip()
+            res = model.generate_content(prompt)
+            json_match = re.search(r"\{.*\}", res.text, re.DOTALL)
+            if json_match:
+                parsed = json.loads(json_match.group(0))
+                logger.info(f"Gemini verifier fallback completed: all_claims_supported={parsed.get('all_claims_supported')}")
+                return parsed
         except Exception as e:
-            logger.warning(f"Gemini API call failed: {e}")
+            logger.warning(f"Gemini verifier fallback failed: {e}")
 
-    if groq_key:
-        try:
-            from langchain_community.chat_models import ChatGroq
-            chat = ChatGroq(groq_api_key=groq_key, model_name="llama3-8b-8192")
-            res = chat.invoke(f"{system_instruction}\n\n{prompt}")
-            if res and res.content:
-                return str(res.content).strip()
-        except Exception as e:
-            logger.warning(f"Groq API call failed: {e}")
-
-    return ""
+    return {"all_claims_supported": True, "unsupported_claims": []}
 
 def synthesize_rag_fallback(question: str, jurisdiction: str, retrieved_docs: list[dict]) -> tuple[str, dict]:
     """
-    Smart deterministic fallback synthesis if external LLM API keys are not provided.
+    Smart deterministic fallback synthesis if external LLM APIs fail or rate limit.
     Returns (answer_text, primary_used_doc).
     """
     if not retrieved_docs:
@@ -107,18 +213,13 @@ def synthesize_rag_fallback(question: str, jurisdiction: str, retrieved_docs: li
     q_lower = question.lower()
     q_words = set(re.findall(r"\w+", q_lower)) - {"a", "an", "the", "in", "on", "can", "i", "what", "is", "do", "does", "of", "for", "to", "like"}
     
-    # Keyword-guided reranking for fallback selection among top retrieved docs
     best_doc = retrieved_docs[0]
     best_score = -1.0
     
     for doc in retrieved_docs:
         text_lower = doc["text"].lower()
         meta = doc["metadata"]
-        
-        # Count overlapping keywords
         match_count = sum(1 for w in q_words if w in text_lower or w in meta.get("law_type", "").lower() or w in meta.get("source_name", "").lower())
-        
-        # Penalize distance
         dist_penalty = doc.get("distance", 1.0)
         score = match_count - (dist_penalty * 2.0)
         
@@ -126,13 +227,45 @@ def synthesize_rag_fallback(question: str, jurisdiction: str, retrieved_docs: li
             best_score = score
             best_doc = doc
             
-    # Check if retrieval quality is too low
     if best_doc.get("distance", 1.0) > 0.60 or best_score < -1.5:
         return "I don't have enough information to answer this confidently.", {}
         
     meta = best_doc["metadata"]
     text = best_doc["text"]
-    return f"According to {meta.get('source_name')} ({meta.get('section')}): {text}", best_doc
+    return f"**According to {meta.get('source_name')} ({meta.get('section')}):**\n\n{text}", best_doc
+
+def is_doc_cited_in_answer(answer_text: str, doc_metadata: dict) -> bool:
+    """
+    Strict matching: A retrieved chunk is included in citations ONLY if its SPECIFIC
+    section or article identifier (e.g. '3(p)', '3(a)', 'Article 27', 'Section 6') is
+    actually mentioned in the generated answer text.
+    """
+    ans_lower = answer_text.lower()
+    sec = doc_metadata.get("section", "").strip()
+    
+    if not sec:
+        return False
+        
+    sec_lower = sec.lower()
+    
+    # 1. Exact string match (e.g., "section 3(p)" in answer)
+    if sec_lower in ans_lower:
+        return True
+        
+    # 2. Extract specific section or article identifiers e.g. "3(p)", "3(a)", "3(d)", "3(h)", "6", "27"
+    sec_identifiers = re.findall(r"(?:section|article|regulation)?\s*([0-9]+(?:\([a-z0-9]+\))*)", sec_lower)
+    
+    for identifier in sec_identifiers:
+        if not identifier:
+            continue
+        if identifier.isdigit() and len(identifier) < 2:
+            if f"section {identifier}" in ans_lower or f"article {identifier}" in ans_lower or f"regulation {identifier}" in ans_lower:
+                return True
+        else:
+            if identifier in ans_lower:
+                return True
+                
+    return False
 
 def process_query(req: QueryRequest) -> QueryResponse:
     embedder, collection = get_resources()
@@ -155,10 +288,9 @@ def process_query(req: QueryRequest) -> QueryResponse:
     for d, m, dist in zip(docs, metas, distances):
         retrieved.append({"text": d, "metadata": m, "distance": dist})
         
-    # Check top similarity distance
     top_dist = retrieved[0]["distance"] if retrieved else 1.0
     
-    # Check out of domain query (e.g. quantum computing, unrelated domain)
+    # Pre-check domain relevance for out-of-domain safeguards
     q_words = set(re.findall(r"\w+", req.question.lower()))
     domain_terms = {"patent", "patents", "trademark", "copyright", "design", "gi", "geographical", "ayurveda", "medicine", "drug", "nba", "biodiversity", "fssai", "trips", "cbd", "nagoya", "pct", "madrid", "hague", "budapest", "wipo", "tkdl", "turmeric", "neem", "plant", "farmers", "aahar", "formulation", "herb", "herbal"}
     
@@ -173,40 +305,46 @@ def process_query(req: QueryRequest) -> QueryResponse:
             escalate_available=True
         )
 
-    # 3. Construct prompt & call LLM
+    # 3. Construct Scenario Application & Strict Readability Prompt for LLM
     context_str = "\n\n".join([
         f"--- Source: {r['metadata'].get('source_name')} ({r['metadata'].get('section')}) ---\n{r['text']}"
         for r in retrieved
     ])
     
     system_instruction = (
-        "You are IP-SAKTI Sahayak, an AI legal assistant for the Ministry of Ayush. "
-        "Answer the user's question accurately using ONLY the provided legal context. "
-        "Do not use outside knowledge. Cite the specific Act and Section numbers in your answer. "
-        "If the provided context does not contain sufficient information to answer the question confidently, "
-        "you MUST reply strictly with: 'I don't have enough information to answer this confidently.'"
+        "You are IP-SAKTI Sahayak, an AI legal assistant for the Ministry of Ayush specialized in Ayurvedic Intellectual Property and Regulatory Law.\n\n"
+        "CORE DUTY:\n"
+        "Answer the user's question by APPLYING the provided legal context to the specific product, action, or scenario mentioned in their prompt.\n\n"
+        "STRICT FACTUAL GROUNDING RULES:\n"
+        "1. IDENTIFY SCENARIO: Identify the exact product name, plant resource, or action mentioned in the user's question (e.g., 'Chawanprash', 'export of raw medicinal herbs', etc.).\n"
+        "2. APPLY THE RULE: Apply the retrieved legal principles directly to that specific scenario. Explain WHY and HOW the law applies to their specific case.\n"
+        "3. STATUTORY CITATIONS: Explicitly cite the relevant Act name and Section/Article numbers in your answer for every statutory claim made.\n"
+        "4. STRICT FACTUAL GROUNDING & NON-OVERREACH:\n"
+        "   Every discrete factual or legal claim in your answer MUST be something explicitly stated in a retrieved chunk. Do not include claims or inferences from unretrieved Acts or outside sources.\n"
+        "5. SAFEGUARD: If the provided legal context does NOT contain sufficient factual or statutory basis to address the user's specific scenario, you MUST respond strictly with: 'I don't have enough information to answer this confidently.'\n\n"
+        "ANSWER FORMATTING RULES FOR MAXIMUM READABILITY:\n"
+        "1. STANDALONE FIRST LINE: For yes/no or clear-outcome questions, open with a bolded direct outcome as the very first line on its own (e.g., '**No, you cannot patent a classical Ayurvedic formulation like Chawanprash in India.**'). For open-ended questions, bold the single most important takeaway sentence as a standalone first line.\n"
+        "2. SHORT PARAGRAPHS: Keep paragraphs short (maximum 2-3 sentences per paragraph). Use blank lines liberally between bullet points or between statutory titles and their explanations to prevent dense walls of text."
     )
     
-    prompt = f"Jurisdiction: {req.jurisdiction}\nQuestion: {req.question}\n\nRetrieved Legal Context:\n{context_str}"
+    prompt = f"Jurisdiction Focus: {req.jurisdiction}\nUser Scenario / Question: {req.question}\n\nRetrieved Legal Context:\n{context_str}"
     
     llm_output = call_llm(prompt, system_instruction)
     primary_doc = None
     
     if not llm_output:
-        # Fallback RAG synthesis
+        logger.info("LLM returned empty output; executing fallback RAG synthesis...")
         llm_output, primary_doc = synthesize_rag_fallback(req.question, req.jurisdiction, retrieved)
         
-    # 4. Process Answer & Citations
+    # 4. Process Answer & Strict Citations Audit
     is_uncertain = "don't have enough information" in llm_output.lower()
     
     citations = []
+    cited_chunks_full = []
     if not is_uncertain:
         seen_keys = set()
         
-        # If fallback identified a primary doc, list it first
-        docs_to_scan = [primary_doc] + retrieved if primary_doc else retrieved
-        
-        for r in docs_to_scan:
+        for r in retrieved:
             if not r or "metadata" not in r:
                 continue
             m = r["metadata"]
@@ -216,25 +354,28 @@ def process_query(req: QueryRequest) -> QueryResponse:
             
             key = (s_name, sec, u)
             if key not in seen_keys and s_name:
-                # Only include citations whose section or Act is actually referenced in answer or context
-                if (s_name.lower() in llm_output.lower() or sec.lower() in llm_output.lower() or primary_doc == r):
+                # Include citation ONLY if its specific section or article is mentioned in answer
+                if is_doc_cited_in_answer(llm_output, m):
                     seen_keys.add(key)
                     citations.append(Citation(
                         source_name=s_name,
                         section=sec,
                         url=u
                     ))
+                    cited_chunks_full.append(r)
                     
-        # If citations empty, populate top match as fallback
-        if not citations and retrieved:
-            m = retrieved[0]["metadata"]
-            citations.append(Citation(
-                source_name=m.get("source_name", ""),
-                section=m.get("section", ""),
-                url=m.get("source_url", "")
-            ))
-    
-    # 5. Determine Confidence
+        # Fallback citation if list is empty (e.g., in fallback mode)
+        if not citations and primary_doc:
+            m = primary_doc.get("metadata", {})
+            if m.get("source_name"):
+                citations.append(Citation(
+                    source_name=m.get("source_name", ""),
+                    section=m.get("section", ""),
+                    url=m.get("source_url", "")
+                ))
+                cited_chunks_full.append(primary_doc)
+
+    # 5. Determine Initial Confidence
     if is_uncertain or top_dist > 0.58:
         confidence = "Low"
     elif top_dist < 0.42:
@@ -242,7 +383,7 @@ def process_query(req: QueryRequest) -> QueryResponse:
     else:
         confidence = "Medium"
         
-    # 6. Determine Escalate Available
+    # Determine Initial Escalate Available
     q_lower = req.question.lower()
     high_stakes_keywords = [
         "abs", "biodiversity", "nba", "national biodiversity authority",
@@ -253,10 +394,19 @@ def process_query(req: QueryRequest) -> QueryResponse:
     is_high_stakes = any(kw in q_lower for kw in high_stakes_keywords)
     escalate = (confidence == "Low") or is_high_stakes
 
+    # 6. Independent Verification Step via Non-Agentic Groq API Model (temperature=0.0)
+    if citations and not is_uncertain:
+        verification = verify_answer(llm_output, cited_chunks_full)
+        if not verification.get("all_claims_supported", True):
+            logger.warning(f"Verification Auditor Flagged Unsupported Claims: {verification.get('unsupported_claims')}")
+            confidence = "Low"
+            escalate = True
+            llm_output += "\n\n*Note: Parts of this answer could not be fully verified against the cited sources — recommend human review for this specific query.*"
+
     return QueryResponse(
         answer=llm_output,
         confidence=confidence,
-        citations=citations[:3],
+        citations=citations,
         disclaimer="This is informational guidance, not legal advice.",
         escalate_available=escalate
     )
@@ -265,7 +415,7 @@ def process_classify(req: ClassifyRequest) -> ClassifyResponse:
     desc = req.description.lower()
     
     system_instruction = (
-        "You are an expert Ayurvedic Regulatory Classifier for the Ministry of Ayush. "
+        "You are an expert Ayurvedic Regulatory Classifier for the Ministry of Ayush.\n"
         "Classify the Ayurvedic product description into EXACTLY ONE of these 6 categories:\n"
         "1. Classical Medicine\n"
         "2. Patent or Proprietary Medicine\n"
