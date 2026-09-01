@@ -2,11 +2,11 @@
 
 ## Tech Stack Summary
 - **Backend**: FastAPI (Python)
-- **Frontend**: React (Vite)
+- **Frontend**: React 18 (Vite) + Lucide React + React Markdown
 - **Vector DB**: ChromaDB (self-hosted local persistence at `./backend/chroma_db`)
 - **Embeddings**: HuggingFace `sentence-transformers` (`all-MiniLM-L6-v2`)
-- **LLM**: Gemini API (Free Tier) / Groq API (Free Tier)
-- **Orchestration**: LangChain
+- **Primary LLM**: Gemini API (`models/gemini-2.5-flash`)
+- **Independent Verifier LLM**: Groq API (`openai/gpt-oss-20b` / `qwen/qwen3.8-27b`, temperature=0.0)
 
 ---
 
@@ -19,7 +19,7 @@ ip-sakti-sahayak/
 │   │   ├── __init__.py
 │   │   ├── main.py           # FastAPI entrypoint & endpoint routing
 │   │   ├── ingestion.py      # Vector DB ingestion & chunking pipeline
-│   │   └── rag_engine.py     # RAG retrieval, query synthesis & product classification engine
+│   │   └── rag_engine.py     # RAG retrieval, query synthesis, verification auditor & classification engine
 │   ├── chroma_db/            # Local persistent ChromaDB vector store
 │   ├── .env.example          # Environment variables template
 │   └── requirements.txt      # Python dependencies
@@ -29,14 +29,19 @@ ip-sakti-sahayak/
 ├── frontend/                 # React (Vite) web application
 │   ├── public/               # Static assets
 │   ├── src/                  # React source files
-│   │   ├── App.jsx           # Main UI component
+│   │   ├── App.jsx           # Main Portal UI component (Query Engine, Classification, Verification & Escalation Modal)
 │   │   ├── main.jsx          # Entrypoint
-│   │   └── index.css         # Global styles
+│   │   └── index.css         # Government-tech / SaaS Portal stylesheet
 │   ├── package.json          # Node dependencies & scripts
-│   ├── vite.config.js        # Vite configuration
+│   ├── vite.config.js        # Vite configuration with /api proxy to localhost:8000
 │   └── .env.example          # Frontend environment configuration
 ├── scratch/                  # Test scripts & verification suites
-│   └── test_endpoints.py     # Endpoint contract verification script
+│   ├── test_endpoints.py     # Endpoint contract verification script
+│   ├── test_user_cases.py    # Case study query execution script
+│   ├── test_chawanprash.py   # Chawanprash patentability query test
+│   ├── test_verifier.py      # Verification auditor test suite
+│   ├── test_subtle_overreach.py # Subtle claim audit script
+│   └── test_repeat_verifier.py  # Repeatability test script
 └── docs/                     # Project documentation
     ├── CODEBASE_MAP.md       # Directory structure, endpoints, stack map
     ├── DECISIONS.md          # Log of technical choices & architecture rationale
@@ -51,5 +56,5 @@ ip-sakti-sahayak/
 | :--- | :--- | :--- | :--- |
 | `GET` | `/` | Health check endpoint | Implemented |
 | `GET` | `/api/health` | Service status & database check | Implemented |
-| `POST` | `/api/query` | RAG legal QA with jurisdiction filtering & source citations | Implemented |
+| `POST` | `/api/query` | RAG legal QA with jurisdiction filtering, citation matching & verification auditing | Implemented |
 | `POST` | `/api/classify` | Ayurvedic product regulatory category classification | Implemented |

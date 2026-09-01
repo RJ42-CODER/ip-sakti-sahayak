@@ -131,12 +131,12 @@ def verify_answer(draft_answer: str, cited_chunks: list[dict]) -> dict:
     Checks whether discrete factual or legal claims in draft_answer are strictly backed by cited_chunks text.
     """
     groq_key = os.getenv("GROQ_API_KEY")
-    if not groq_key or not cited_chunks or "don't have enough information" in draft_answer.lower():
+    if not groq_key or not cited_chunks or not draft_answer or "don't have enough information" in draft_answer.lower():
         return {"all_claims_supported": True, "unsupported_claims": []}
 
     chunks_text = "\n\n".join([
-        f"--- Cited Source: {c['metadata'].get('source_name')} ({c['metadata'].get('section')}) ---\n{c['text']}"
-        for c in cited_chunks
+        f"--- Cited Source: {(c.get('metadata') or {}).get('source_name', '')} ({(c.get('metadata') or {}).get('section', '')}) ---\n{c.get('text', '')}"
+        for c in cited_chunks if c
     ])
 
     system_instruction = (
@@ -155,7 +155,6 @@ def verify_answer(draft_answer: str, cited_chunks: list[dict]) -> dict:
 
     prompt = f"Draft Answer to Audit:\n{draft_answer}\n\nProvided Source Texts:\n{chunks_text}"
 
-    # Use pure non-agentic closed-context models on Groq with temperature=0.0 for deterministic evaluation
     for verifier_model in ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]:
         try:
             url = "https://api.groq.com/openai/v1/chat/completions"
@@ -176,8 +175,6 @@ def verify_answer(draft_answer: str, cited_chunks: list[dict]) -> dict:
                 parsed = json.loads(content)
                 logger.info(f"Verification auditor ({verifier_model}) completed: all_claims_supported={parsed.get('all_claims_supported')}")
                 return parsed
-            else:
-                logger.warning(f"Groq verifier model '{verifier_model}' returned status {res.status_code}: {res.text}")
         except Exception as e:
             logger.warning(f"Groq verification step with model '{verifier_model}' failed: {e}")
 
@@ -195,7 +192,6 @@ def verify_answer(draft_answer: str, cited_chunks: list[dict]) -> dict:
             json_match = re.search(r"\{.*\}", res.text, re.DOTALL)
             if json_match:
                 parsed = json.loads(json_match.group(0))
-                logger.info(f"Gemini verifier fallback completed: all_claims_supported={parsed.get('all_claims_supported')}")
                 return parsed
         except Exception as e:
             logger.warning(f"Gemini verifier fallback failed: {e}")
@@ -217,9 +213,9 @@ def synthesize_rag_fallback(question: str, jurisdiction: str, retrieved_docs: li
     best_score = -1.0
     
     for doc in retrieved_docs:
-        text_lower = doc["text"].lower()
-        meta = doc["metadata"]
-        match_count = sum(1 for w in q_words if w in text_lower or w in meta.get("law_type", "").lower() or w in meta.get("source_name", "").lower())
+        text_lower = (doc.get("text") or "").lower()
+        meta = doc.get("metadata") or {}
+        match_count = sum(1 for w in q_words if w in text_lower or w in (meta.get("law_type") or "").lower() or w in (meta.get("source_name") or "").lower())
         dist_penalty = doc.get("distance", 1.0)
         score = match_count - (dist_penalty * 2.0)
         
@@ -230,18 +226,21 @@ def synthesize_rag_fallback(question: str, jurisdiction: str, retrieved_docs: li
     if best_doc.get("distance", 1.0) > 0.60 or best_score < -1.5:
         return "I don't have enough information to answer this confidently.", {}
         
-    meta = best_doc["metadata"]
-    text = best_doc["text"]
-    return f"**According to {meta.get('source_name')} ({meta.get('section')}):**\n\n{text}", best_doc
+    meta = best_doc.get("metadata") or {}
+    text = best_doc.get("text") or ""
+    return f"**According to {meta.get('source_name', '')} ({meta.get('section', '')}):**\n\n{text}", best_doc
 
 def is_doc_cited_in_answer(answer_text: str, doc_metadata: dict) -> bool:
     """
-    Strict matching: A retrieved chunk is included in citations ONLY if its SPECIFIC
+    Strict defensive matching: A retrieved chunk is included in citations ONLY if its SPECIFIC
     section or article identifier (e.g. '3(p)', '3(a)', 'Article 27', 'Section 6') is
     actually mentioned in the generated answer text.
     """
+    if not answer_text or not doc_metadata:
+        return False
+        
     ans_lower = answer_text.lower()
-    sec = doc_metadata.get("section", "").strip()
+    sec = (doc_metadata.get("section") or "").strip()
     
     if not sec:
         return False
@@ -286,7 +285,7 @@ def process_query(req: QueryRequest) -> QueryResponse:
     
     retrieved = []
     for d, m, dist in zip(docs, metas, distances):
-        retrieved.append({"text": d, "metadata": m, "distance": dist})
+        retrieved.append({"text": d, "metadata": m or {}, "distance": dist})
         
     top_dist = retrieved[0]["distance"] if retrieved else 1.0
     
@@ -307,7 +306,7 @@ def process_query(req: QueryRequest) -> QueryResponse:
 
     # 3. Construct Scenario Application & Strict Readability Prompt for LLM
     context_str = "\n\n".join([
-        f"--- Source: {r['metadata'].get('source_name')} ({r['metadata'].get('section')}) ---\n{r['text']}"
+        f"--- Source: {(r.get('metadata') or {}).get('source_name', '')} ({(r.get('metadata') or {}).get('section', '')}) ---\n{r.get('text', '')}"
         for r in retrieved
     ])
     
@@ -347,10 +346,10 @@ def process_query(req: QueryRequest) -> QueryResponse:
         for r in retrieved:
             if not r or "metadata" not in r:
                 continue
-            m = r["metadata"]
-            s_name = m.get("source_name", "")
-            sec = m.get("section", "")
-            u = m.get("source_url", "")
+            m = r["metadata"] or {}
+            s_name = (m.get("source_name") or "").strip()
+            sec = (m.get("section") or "").strip()
+            u = (m.get("source_url") or "").strip()
             
             key = (s_name, sec, u)
             if key not in seen_keys and s_name:
@@ -366,12 +365,12 @@ def process_query(req: QueryRequest) -> QueryResponse:
                     
         # Fallback citation if list is empty (e.g., in fallback mode)
         if not citations and primary_doc:
-            m = primary_doc.get("metadata", {})
+            m = primary_doc.get("metadata") or {}
             if m.get("source_name"):
                 citations.append(Citation(
-                    source_name=m.get("source_name", ""),
-                    section=m.get("section", ""),
-                    url=m.get("source_url", "")
+                    source_name=m.get("source_name") or "",
+                    section=m.get("section") or "",
+                    url=m.get("source_url") or ""
                 ))
                 cited_chunks_full.append(primary_doc)
 
@@ -396,12 +395,15 @@ def process_query(req: QueryRequest) -> QueryResponse:
 
     # 6. Independent Verification Step via Non-Agentic Groq API Model (temperature=0.0)
     if citations and not is_uncertain:
-        verification = verify_answer(llm_output, cited_chunks_full)
-        if not verification.get("all_claims_supported", True):
-            logger.warning(f"Verification Auditor Flagged Unsupported Claims: {verification.get('unsupported_claims')}")
-            confidence = "Low"
-            escalate = True
-            llm_output += "\n\n*Note: Parts of this answer could not be fully verified against the cited sources — recommend human review for this specific query.*"
+        try:
+            verification = verify_answer(llm_output, cited_chunks_full)
+            if not verification.get("all_claims_supported", True):
+                logger.warning(f"Verification Auditor Flagged Unsupported Claims: {verification.get('unsupported_claims')}")
+                confidence = "Low"
+                escalate = True
+                llm_output += "\n\n*Note: Parts of this answer could not be fully verified against the cited sources — recommend human review for this specific query.*"
+        except Exception as v_err:
+            logger.warning(f"Verification step encounter exception (ignored for response safety): {v_err}")
 
     return QueryResponse(
         answer=llm_output,

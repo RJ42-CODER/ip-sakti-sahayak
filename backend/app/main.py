@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.rag_engine import (
@@ -8,6 +9,10 @@ from app.rag_engine import (
     process_query,
     process_classify,
 )
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("main_api")
 
 app = FastAPI(
     title="IP-SAKTI Sahayak API",
@@ -44,11 +49,13 @@ def query_api(req: QueryRequest):
     try:
         return process_query(req)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled Exception in POST /api/query", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Query Processing Error: {str(e)}")
 
 @app.post("/api/classify", response_model=ClassifyResponse)
 def classify_api(req: ClassifyRequest):
     try:
         return process_classify(req)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled Exception in POST /api/classify", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Classification Error: {str(e)}")

@@ -63,9 +63,17 @@ This document records key architectural and technology selection choices made du
 * **Context**: Need to ensure consistent, deterministic verification auditor behavior that explicitly accepts valid product scenario application while strictly flagging unbacked legal assertions (e.g., GST exemptions).
 * **Choice**:
   - **Model & Parameters**: Configured **`openai/gpt-oss-20b`** on Groq API with `temperature=0.0` for deterministic evaluation.
-  - **Explicit Scenario Rule in System Prompt**: Added explicit verifier rule:
-    > *"Applying a general rule or definition from the source text to the specific product/scenario named in the user's question is VALID and should be marked supported, even though the source text doesn't name that product specifically. Only flag a claim as unsupported if it asserts something the source text does not establish even in general/abstract terms — e.g. a specific penalty, tax status (such as GST exemption), or legal consequence never mentioned in the source text at all."*
-  - **Repeatability Verification**: Tested happy-path queries and subtle GST-injection queries twice each. Achieved 100% consistent output across all repeats (happy-path passed with `all_claims_supported: true`; subtle GST claim flagged consistently as `unsupported_claims`).
+  - **Explicit Scenario Rule in System Prompt**: Added explicit verifier rule allowing scenario application while flagging unbacked penalties/tax claims.
 * **Rationale**:
   - Guarantees deterministic, reproducible verification during live hackathon demonstrations.
-  - Resolves ambiguity between valid scenario reasoning and illegal statutory overreach.
+
+---
+
+### Decision 006: Verified Statutory URLs & Regulatory Link Separation
+* **Date**: 2026-09-01
+* **Context**: Updated all statutory entries across `ayurveda_corpus_base.json` and `ayurveda_corpus_extended.json` with manually verified IndiaCode & IPIndia official URLs.
+* **Choice**:
+  - **Primary Acts**: Mapped to official IndiaCode section portals (`https://indiacode.gov.in/act/...`) and IPIndia (`https://ipindia.gov.in/acts/patent-act-1970`).
+  - **Subordinate Regulations**: Maintained `https://www.fssai.gov.in/` for FSSAI Ayurveda-Aahar Regulations, 2022 (as secondary regulation rather than primary Act).
+* **Rationale**:
+  - Ensures 100% official statutory link validity for judges and legal professionals evaluating citation links.

@@ -23,15 +23,36 @@
 ## 2026-08-31: Real LLM Wiring, Citation Precision & Deterministic Groq Verification
 
 ### Work Completed
-1. **Scenario Application & Verification Consistency**:
-   - Added explicit rule to `verify_answer()` system prompt in `backend/app/rag_engine.py`:
-     > *"Applying a general rule or definition from the source text to the specific product/scenario named in the user's question is VALID and should be marked supported... Only flag a claim as unsupported if it asserts something the source text does not establish even in general terms..."*
-   - Set `temperature=0.0` for `verify_answer()` API calls using `openai/gpt-oss-20b`.
+1. **Model Architecture & Prompting**:
+   - Integrated Gemini API (`models/gemini-2.5-flash`) with Groq fallback.
+   - Enforced standalone bolded first line outcomes and scenario application.
+2. **Strict Section Citation Matcher**:
+   - Refined `is_doc_cited_in_answer()` so only chunks whose specific section numbers are mentioned in the answer appear in `citations`.
+3. **Independent Verification Auditor (`verify_answer`)**:
+   - Built `verify_answer(draft_answer, cited_chunks)` in `backend/app/rag_engine.py` using Groq API (`openai/gpt-oss-20b`, temperature=0.0).
 
-### Repeatability Verification Results
-- **Chawanprash Happy-Path Query (Run 1 & Run 2)**:
-  - Both runs returned `all_claims_supported: true`, `confidence: "High"`, `escalate_available: false`.
-  - Zero false-positive flags on valid product scenario application.
-- **Subtle GST-Injection Query (Run 1 & Run 2)**:
-  - Both runs returned `all_claims_supported: false`.
-  - Both runs cited the exact unsupported claim: `["all traditional Ayurvedic manufacturers of Chawanprash are legally exempt from GST registration and commercial sales tax in India"]`.
+---
+
+## 2026-09-01: Verified Citation URLs Update, FSSAI Audit & Escalation Contact Details
+
+### Work Completed
+1. **Verified Statutory URLs Update**:
+   - Updated `source_url` for all 8 National Acts across `ayurveda_corpus_base.json` and `ayurveda_corpus_extended.json`:
+     - Patents Act, 1970 → `https://ipindia.gov.in/acts/patent-act-1970`
+     - Biological Diversity Act, 2002 → `https://indiacode.gov.in/act/000de0a3-39ce-4e18-85f0-0c51b4bdab5d/sections`
+     - Designs Act, 2000 → `https://indiacode.gov.in/act/cd8f2852-7085-432b-a264-7b73a6f01fff/sections`
+     - Trade Marks Act, 1999 → `https://indiacode.gov.in/act/62219d21-0553-405b-9ccb-a11b4d9c41c2/sections`
+     - Copyright Act, 1957 → `https://indiacode.gov.in/act/6b893162-631a-453b-a7b9-89685716889b/sections`
+     - PPV&FR Act, 2001 → `https://indiacode.gov.in/act/66408705-b196-477f-9229-dc633f393a23/sections`
+     - GI Act, 1999 → `https://indiacode.gov.in/act/1905d861-7dcd-46d6-a03b-4fe6009dea5b/sections`
+     - Drugs and Cosmetics Act, 1940 → `https://indiacode.gov.in/act/8725a8a7-45a4-42e3-9046-e2a6383cd049/sections`
+2. **FSSAI Entry Verification**:
+   - Audited FSSAI Ayurveda-Aahar Regulations entry: confirmed URL is set to `https://www.fssai.gov.in/` (subordinate regulatory portal rather than primary legislation).
+3. **Re-ingested Vector Database**:
+   - Executed `python backend/app/ingestion.py` — re-embedded 25 chunks and persisted updated metadata in ChromaDB (`./backend/chroma_db`).
+4. **Escalation Modal Contact Info**:
+   - Updated `frontend/src/App.jsx` to render official Ministry of Ayush nodal contact details:
+     - *Ministry of Ayush, Ayush Bhawan, B Block, GPO Complex, INA, New Delhi - 110023*
+     - *Phone: 011-24651942 | Email: support-moayush@nic.in | Web: ayush.gov.in*
+5. **Live Verification**:
+   - Executed live API query: returned updated citation URLs cleanly in live response (`https://ipindia.gov.in/acts/patent-act-1970` and `https://indiacode.gov.in/act/8725a8a7-45a4-42e3-9046-e2a6383cd049/sections`).
