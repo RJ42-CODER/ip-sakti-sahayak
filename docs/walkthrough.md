@@ -56,3 +56,15 @@
      - *Phone: 011-24651942 | Email: support-moayush@nic.in | Web: ayush.gov.in*
 5. **Live Verification**:
    - Executed live API query: returned updated citation URLs cleanly in live response (`https://ipindia.gov.in/acts/patent-act-1970` and `https://indiacode.gov.in/act/8725a8a7-45a4-42e3-9046-e2a6383cd049/sections`).
+
+---
+
+## 2026-09-02: Scope-Setting Info Card Added to Query Engine
+
+### Work Completed
+1. **Added Scope Guidance UI Panel**:
+   - Added a subtle `.scope-info-card` element above the query input in [`frontend/src/App.jsx`](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/frontend/src/App.jsx) and styled in [`frontend/src/index.css`](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/frontend/src/index.css).
+   - Text: *"This assistant can help with: Patent eligibility of Ayurvedic formulations, Geographical Indication & Trademark protection, Biodiversity/ABS compliance for medicinal plants, Drug vs. cosmetic vs. nutraceutical classification, and landmark case precedents (e.g. Neem, Turmeric). Questions outside Indian/international IP and AYUSH regulatory law will be declined."*
+   - Styled with a subtle off-white background, soft border, and discrete left accent bar matching the primary navy theme so it does not compete visually with the main input.
+2. **Build Verification**:
+   - Built cleanly via `npm run build` in 13.6s with 0 errors.

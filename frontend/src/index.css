@@ -171,6 +171,23 @@ body {
   margin-bottom: 1.25rem;
 }
 
+.scope-info-card {
+  background-color: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary-blue);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.825rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.scope-info-card strong {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
 .panel-title {
   font-size: 1.1rem;
   font-weight: 600;

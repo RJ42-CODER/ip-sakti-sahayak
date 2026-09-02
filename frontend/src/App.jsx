@@ -194,6 +194,11 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Scope Info Panel */}
+              <div className="scope-info-card">
+                <strong>This assistant can help with:</strong> Patent eligibility of Ayurvedic formulations, Geographical Indication &amp; Trademark protection, Biodiversity/ABS compliance for medicinal plants, Drug vs. cosmetic vs. nutraceutical classification, and landmark case precedents (e.g. Neem, Turmeric). Questions outside Indian/international IP and AYUSH regulatory law will be declined.
+              </div>
+
               <form onSubmit={handleQuerySubmit}>
                 <div className="form-group">
                   <label className="form-label">Product / Legal Scenario Description</label>
