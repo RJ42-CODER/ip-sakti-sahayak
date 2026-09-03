@@ -22,6 +22,7 @@ export default function App() {
   // Query tab state
   const [question, setQuestion] = useState('');
   const [jurisdiction, setJurisdiction] = useState('India');
+  const [targetLanguage, setTargetLanguage] = useState('');
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryResponse, setQueryResponse] = useState(null);
   const [queryError, setQueryError] = useState('');
@@ -46,10 +47,15 @@ export default function App() {
     setQueryResponse(null);
 
     try {
+      const payload = { question, jurisdiction };
+      if (targetLanguage) {
+        payload.target_language = targetLanguage;
+      }
+
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, jurisdiction })
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
@@ -175,22 +181,42 @@ export default function App() {
                   Ask an Intellectual Property or Regulatory Question
                 </div>
                 
-                {/* Jurisdiction Toggle */}
-                <div className="jurisdiction-toggle">
-                  <button 
-                    type="button"
-                    className={`toggle-btn ${jurisdiction === 'India' ? 'active' : ''}`}
-                    onClick={() => setJurisdiction('India')}
+                <div className="flex items-center gap-3">
+                  {/* Target Language Selector */}
+                  <select 
+                    className="form-select"
+                    value={targetLanguage}
+                    onChange={(e) => setTargetLanguage(e.target.value)}
+                    aria-label="Select output language"
                   >
-                    🇮🇳 India Law
-                  </button>
-                  <button 
-                    type="button"
-                    className={`toggle-btn ${jurisdiction === 'International' ? 'active' : ''}`}
-                    onClick={() => setJurisdiction('International')}
-                  >
-                    🌐 International Law
-                  </button>
+                    <option value="">English (Default)</option>
+                    <option value="Hindi">Hindi (हिन्दी)</option>
+                    <option value="Marathi">Marathi (मराठी)</option>
+                    <option value="Tamil">Tamil (தமிழ்)</option>
+                    <option value="Telugu">Telugu (తెలుగు)</option>
+                    <option value="Bengali">Bengali (বাংলা)</option>
+                    <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                    <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                    <option value="Malayalam">Malayalam (മലയാളം)</option>
+                  </select>
+
+                  {/* Jurisdiction Toggle */}
+                  <div className="jurisdiction-toggle">
+                    <button 
+                      type="button"
+                      className={`toggle-btn ${jurisdiction === 'India' ? 'active' : ''}`}
+                      onClick={() => setJurisdiction('India')}
+                    >
+                      🇮🇳 India Law
+                    </button>
+                    <button 
+                      type="button"
+                      className={`toggle-btn ${jurisdiction === 'International' ? 'active' : ''}`}
+                      onClick={() => setJurisdiction('International')}
+                    >
+                      🌐 International Law
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -295,10 +321,23 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Markdown Answer */}
+                {/* Markdown Answer (English Authoritative) */}
                 <div className="markdown-body">
                   <ReactMarkdown>{queryResponse.answer}</ReactMarkdown>
                 </div>
+
+                {/* Translated Answer Presentation Layer (if requested) */}
+                {queryResponse.translated_answer && (
+                  <div className="translated-answer-box">
+                    <div className="translated-answer-title">
+                      <Globe className="w-4 h-4 text-amber-700" />
+                      Translated Explanation ({targetLanguage || 'Regional Language'})
+                    </div>
+                    <div className="markdown-body">
+                      <ReactMarkdown>{queryResponse.translated_answer}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
 
                 {/* Verifier Caveat Banner (if flagged) */}
                 {hasVerifierCaveat && (

@@ -77,3 +77,17 @@ This document records key architectural and technology selection choices made du
   - **Subordinate Regulations**: Maintained `https://www.fssai.gov.in/` for FSSAI Ayurveda-Aahar Regulations, 2022 (as secondary regulation rather than primary Act).
 * **Rationale**:
   - Ensures 100% official statutory link validity for judges and legal professionals evaluating citation links.
+
+---
+
+### Decision 007: Post-Verification Presentation-Layer Multilingual Translation
+* **Date**: 2026-09-03
+* **Context**: The Ministry of Ayush requires multilingual support (e.g., Hindi, Marathi, regional languages) for ground-level practitioners across India, without compromising legal factual precision or audit integrity.
+* **Choice**:
+  - **Sequential Ordering**: Translation is executed strictly AFTER the English answer has been synthesized, cited, and independently verified against source chunks by the verification auditor.
+  - **Presentation Layer, Not Generation**: The English answer remains the sole authoritative legal source of truth. Translation acts purely as a display/presentation layer.
+  - **Selective Prose Translation**: Only explanatory sentences/prose are translated. Proper legal nouns, statutory titles (e.g. *Patents Act, 1970*, *Drugs and Cosmetics Act, 1940*), section identifiers (*Section 3(p)*, *Section 3(a)*), and citation objects remain in their original English form.
+  - **Graceful Degradation**: If the translation API call encounters an error, `translated_answer` returns as `null` without impacting or failing the verified English response.
+  - **Authoritative Disclaimer**: Every translation appends: *"This translation is provided for convenience. The English version above is authoritative in case of any discrepancy."*
+* **Rationale**:
+  - Translating before verification or verifying translated regional text would introduce compounding linguistic ambiguity and degrade the determinism of the auditor. Decoupling verification (ground truth) from presentation (translation) preserves 100% legal correctness while delivering seamless regional accessibility.

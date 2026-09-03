@@ -48,6 +48,7 @@ def get_resources():
 class QueryRequest(BaseModel):
     question: str = Field(..., example="Can I patent a classical Ayurvedic formulation in India?")
     jurisdiction: Literal["India", "International"] = Field(..., example="India")
+    target_language: str | None = Field(default=None, example="Hindi")
 
 class Citation(BaseModel):
     source_name: str
@@ -56,6 +57,7 @@ class Citation(BaseModel):
 
 class QueryResponse(BaseModel):
     answer: str
+    translated_answer: str | None = None
     confidence: Literal["High", "Medium", "Low"]
     citations: list[Citation]
     disclaimer: str = "This is informational guidance, not legal advice."
@@ -124,6 +126,61 @@ def call_llm(prompt: str, system_instruction: str = "") -> str:
             logger.warning(f"Groq API fallback call failed: {e}")
 
     return ""
+
+def translate_answer(verified_english_answer: str, target_language: str) -> str | None:
+    """
+    Translates ONLY the prose explanation of the verified English answer into target_language.
+    Preserves Act names, section/article numbers, and proper legal identifiers in original English.
+    Appends fixed disclaimer note.
+    Returns None on failure.
+    """
+    if not verified_english_answer or not target_language:
+        return None
+    
+    tl_clean = target_language.strip()
+    if tl_clean.lower() in ["english", "en"]:
+        return None
+
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key:
+        logger.warning("No GEMINI_API_KEY available for translation.")
+        return None
+
+    fixed_note = "\n\n*Note: This translation is provided for convenience. The English version above is authoritative in case of any discrepancy.*"
+
+    system_instruction = (
+        f"You are an expert legal translator for the Ministry of Ayush.\n"
+        f"Translate the provided verified legal answer into {tl_clean}.\n\n"
+        "STRICT TRANSLATION RULES:\n"
+        f"1. Translate ONLY the explanatory prose into natural, professional, grammatically accurate {tl_clean}.\n"
+        "2. DO NOT translate: Act names (e.g. 'Patents Act, 1970', 'Drugs and Cosmetics Act, 1940', 'Biological Diversity Act, 2002'), section/article numbers (e.g. 'Section 3(p)', 'Section 3(a)', 'Article 27'), or statutory citations — keep them in their original English form.\n"
+        "3. Preserve markdown formatting, bold text markers, lists, and line breaks exactly.\n"
+        "4. Output ONLY the translated text without conversational preamble or meta-commentary."
+    )
+
+    prompt = f"English Legal Answer to Translate:\n{verified_english_answer}"
+
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=gemini_key)
+        
+        for model_name in ["models/gemini-2.5-flash", "models/gemini-3.6-flash", "models/gemini-flash-latest"]:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    system_instruction=system_instruction
+                )
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    translated_text = response.text.strip()
+                    logger.info(f"Translation to {tl_clean} succeeded with Gemini model '{model_name}'.")
+                    return translated_text + fixed_note
+            except Exception as m_err:
+                logger.warning(f"Gemini translation model '{model_name}' failed: {m_err}")
+    except Exception as e:
+        logger.warning(f"Translation call failed: {e}")
+
+    return None
 
 def verify_answer(draft_answer: str, cited_chunks: list[dict]) -> dict:
     """
@@ -405,8 +462,18 @@ def process_query(req: QueryRequest) -> QueryResponse:
         except Exception as v_err:
             logger.warning(f"Verification step encounter exception (ignored for response safety): {v_err}")
 
+    # 7. Presentation-Layer Translation (AFTER verification)
+    translated_output = None
+    if req.target_language and req.target_language.strip().lower() not in ["english", "en"]:
+        try:
+            translated_output = translate_answer(llm_output, req.target_language)
+        except Exception as t_err:
+            logger.warning(f"Translation step failed (fallback to English): {t_err}")
+            translated_output = None
+
     return QueryResponse(
         answer=llm_output,
+        translated_answer=translated_output,
         confidence=confidence,
         citations=citations,
         disclaimer="This is informational guidance, not legal advice.",

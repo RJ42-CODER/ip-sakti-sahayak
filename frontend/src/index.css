@@ -239,6 +239,45 @@ body {
   border: 1px solid var(--border-color);
 }
 
+.form-select {
+  padding: 0.4rem 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: var(--text-main);
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.form-select:focus {
+  border-color: var(--primary-blue);
+}
+
+.translated-answer-box {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  background-color: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-saffron);
+  border-radius: 6px;
+}
+
+.translated-answer-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .toggle-btn {
   background: none;
   border: none;

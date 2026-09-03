@@ -68,3 +68,23 @@
    - Styled with a subtle off-white background, soft border, and discrete left accent bar matching the primary navy theme so it does not compete visually with the main input.
 2. **Build Verification**:
    - Built cleanly via `npm run build` in 13.6s with 0 errors.
+
+---
+
+## 2026-09-03: Post-Verification Multilingual Support (`target_language` & `translated_answer`)
+
+### Work Completed
+1. **Backend Schema & Architecture**:
+   - Extended `QueryRequest` with optional `target_language: str | None = None`.
+   - Extended `QueryResponse` with optional `translated_answer: str | None = None`.
+   - Implemented `translate_answer()` using Gemini (`models/gemini-2.5-flash`), strictly executed **AFTER** generation, citation filtering, and independent Groq verification.
+   - Enforced rule preserving Act names (e.g. *Patents Act, 1970*, *Drugs and Cosmetics Act, 1940*), section numbers (*Section 3(p)*, *Section 3(a)*), and citation fields in original English.
+   - Appended mandatory disclaimer note: `"*Note: This translation is provided for convenience. The English version above is authoritative in case of any discrepancy.*"`.
+   - Built graceful failure fallback: translation errors fail silently to `translated_answer = null` without blocking the verified English answer.
+2. **Frontend UI Integration**:
+   - Added regional language selector dropdown (`form-select`) supporting Hindi, Marathi, Tamil, Telugu, Bengali, Gujarati, Kannada, Malayalam.
+   - Added translated answer presentation section (`translated-answer-box`) styled in warm legal amber (`border-left: 3px solid #f59e0b`).
+   - Verified production build via `npm run build` (built cleanly in 16.35s).
+3. **Live Verification**:
+   - Executed `scratch/test_hindi_translation.py` for the Chawanprash query with `target_language: "Hindi"`.
+   - Confirmed both `answer` (English authoritative) and `translated_answer` (Hindi prose with un-translated Act/Section identifiers) returned with `Status 200`.
