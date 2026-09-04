@@ -72,11 +72,12 @@ class ClassifyResponse(BaseModel):
 
 # LLM Integration: Primary Gemini API, Fallback Groq API
 
-def call_llm(prompt: str, system_instruction: str = "") -> str:
+def call_llm(prompt: str, system_instruction: str = "", max_output_tokens: int = 400) -> str:
     """
     Primary: Gemini API (gemini-2.5-flash / gemini-3.6-flash).
     Fallback: Groq API (openai/gpt-oss-20b / qwen/qwen3.8-27b).
     Returns empty string if both fail or keys are absent.
+    max_output_tokens caps length to force concise, fast response.
     """
     gemini_key = os.getenv("GEMINI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
@@ -87,11 +88,15 @@ def call_llm(prompt: str, system_instruction: str = "") -> str:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
             
-            for model_name in ["models/gemini-2.5-flash", "models/gemini-3.6-flash", "models/gemini-flash-latest"]:
+            for model_name in ["models/gemini-3.1-flash-lite", "models/gemini-2.5-flash", "models/gemini-3.6-flash", "models/gemini-3.5-flash-lite", "models/gemini-flash-latest"]:
                 try:
                     model = genai.GenerativeModel(
                         model_name=model_name,
-                        system_instruction=system_instruction if system_instruction else None
+                        system_instruction=system_instruction if system_instruction else None,
+                        generation_config=genai.GenerationConfig(
+                            max_output_tokens=max_output_tokens,
+                            temperature=0.2
+                        )
                     )
                     response = model.generate_content(prompt)
                     if response and response.text:
@@ -114,7 +119,12 @@ def call_llm(prompt: str, system_instruction: str = "") -> str:
             messages.append({"role": "user", "content": prompt})
             
             for model_name in ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]:
-                payload = {"model": model_name, "messages": messages, "temperature": 0.0}
+                payload = {
+                    "model": model_name,
+                    "messages": messages,
+                    "temperature": 0.0,
+                    "max_tokens": max_output_tokens
+                }
                 res = httpx.post(url, headers=headers, json=payload, timeout=12.0)
                 if res.status_code == 200:
                     data = res.json()
@@ -354,7 +364,7 @@ def process_query(req: QueryRequest) -> QueryResponse:
     
     if not has_domain_term and top_dist > 0.50:
         return QueryResponse(
-            answer="I don't have enough information to answer this confidently.",
+            answer="This question is outside my area — I'm built specifically for Ayurvedic IP and regulatory law questions.",
             confidence="Low",
             citations=[],
             disclaimer="This is informational guidance, not legal advice.",
@@ -370,7 +380,7 @@ def process_query(req: QueryRequest) -> QueryResponse:
     system_instruction = (
         "You are IP-SAKTI Sahayak, an AI legal assistant for the Ministry of Ayush specialized in Ayurvedic Intellectual Property and Regulatory Law.\n\n"
         "CORE DUTY:\n"
-        "Answer the user's question by APPLYING the provided legal context to the specific product, action, or scenario mentioned in their prompt.\n\n"
+        "Answer the user's question concisely by APPLYING the provided legal context to the specific product, action, or scenario mentioned in their prompt.\n\n"
         "STRICT FACTUAL GROUNDING RULES:\n"
         "1. IDENTIFY SCENARIO: Identify the exact product name, plant resource, or action mentioned in the user's question (e.g., 'Chawanprash', 'export of raw medicinal herbs', etc.).\n"
         "2. APPLY THE RULE: Apply the retrieved legal principles directly to that specific scenario. Explain WHY and HOW the law applies to their specific case.\n"
@@ -378,14 +388,14 @@ def process_query(req: QueryRequest) -> QueryResponse:
         "4. STRICT FACTUAL GROUNDING & NON-OVERREACH:\n"
         "   Every discrete factual or legal claim in your answer MUST be something explicitly stated in a retrieved chunk. Do not include claims or inferences from unretrieved Acts or outside sources.\n"
         "5. SAFEGUARD: If the provided legal context does NOT contain sufficient factual or statutory basis to address the user's specific scenario, you MUST respond strictly with: 'I don't have enough information to answer this confidently.'\n\n"
-        "ANSWER FORMATTING RULES FOR MAXIMUM READABILITY:\n"
+        "ANSWER FORMATTING RULES FOR MAXIMUM READABILITY & SPEED:\n"
         "1. STANDALONE FIRST LINE: For yes/no or clear-outcome questions, open with a bolded direct outcome as the very first line on its own (e.g., '**No, you cannot patent a classical Ayurvedic formulation like Chawanprash in India.**'). For open-ended questions, bold the single most important takeaway sentence as a standalone first line.\n"
-        "2. SHORT PARAGRAPHS: Keep paragraphs short (maximum 2-3 sentences per paragraph). Use blank lines liberally between bullet points or between statutory titles and their explanations to prevent dense walls of text."
+        "2. CONCISE CORE ANSWER: Deliver a concise 2-4 sentence core explanation directly applying the cited sections to the product/scenario. Keep the response tightly focused and avoid redundant restatements."
     )
     
     prompt = f"Jurisdiction Focus: {req.jurisdiction}\nUser Scenario / Question: {req.question}\n\nRetrieved Legal Context:\n{context_str}"
     
-    llm_output = call_llm(prompt, system_instruction)
+    llm_output = call_llm(prompt, system_instruction, max_output_tokens=400)
     primary_doc = None
     
     if not llm_output:

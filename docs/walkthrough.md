@@ -88,3 +88,76 @@
 3. **Live Verification**:
    - Executed `scratch/test_hindi_translation.py` for the Chawanprash query with `target_language: "Hindi"`.
    - Confirmed both `answer` (English authoritative) and `translated_answer` (Hindi prose with un-translated Act/Section identifiers) returned with `Status 200`.
+
+---
+
+## 2026-09-04: System Hardening, Speed Optimization & UI Polish
+
+### Work Completed
+1. **Removed False Bhashini Branding (Task 1)**:
+   - Replaced all user-facing Bhashini text in `frontend/src/App.jsx`:
+     - Header pill: changed to `Multilingual Support`.
+     - Voice button label: changed from `🎙 Speak with Bhashini` to `🎙 Voice Input`.
+     - Button title: changed to `Voice speech-to-text input powered by Web Speech API`.
+     - Error alert and internal comments: clarified usage of native browser Web Speech API.
+2. **Response Speed Optimization & Token Capping (Task 2)**:
+   - Capped LLM answer generation with `max_output_tokens=400` in Gemini `GenerationConfig` and `max_tokens=400` in Groq API fallback.
+   - Updated system prompt to explicitly request a concise 2-4 sentence core legal answer.
+   - Confirmed `translate_answer()` only triggers when `target_language` is explicitly provided and non-English (default requests execute zero translation calls).
+   - Measured benchmark:
+     - **Before**: 16.28s response time, 997 characters (138 words).
+     - **After**: 10.21s response time, 617 characters (89 words).
+     - **Improvement**: ~37% faster end-to-end turnaround and 38% more concise output.
+3. **Restored Scope Panel (Task 3)**:
+   - Restored `.scope-info-card` above the query input in `frontend/src/App.jsx` with the exact requested text:
+     *"This assistant can help with: Patent eligibility of Ayurvedic formulations, Geographical Indication & Trademark protection, Biodiversity/ABS compliance for medicinal plants, Drug vs. cosmetic vs. nutraceutical classification, and landmark case precedents (e.g. Neem, Turmeric). Questions outside Indian/international IP and AYUSH regulatory law will be declined."*
+   - Styled with subtle frosted slate theme in `frontend/src/index.css`.
+4. **Distinguished Out-of-Scope vs. Weak-Context (Task 4)**:
+   - Updated domain relevance pre-check failure message in `backend/app/rag_engine.py`:
+     *"This question is outside my area — I'm built specifically for Ayurvedic IP and regulatory law questions."*
+   - Preserved *"I don't have enough information to answer this confidently."* for weak in-domain context.
+5. **Fixed CORS (Task 5)**:
+   - Changed FastAPI CORS `allow_origins` in `backend/app/main.py` from `["*"]` to explicit `["http://localhost:3000", "http://localhost:5173"]`.
+---
+
+## 2026-09-04: Progressive Disclosure & Diagrammatic Scope Panel UI
+
+### Work Completed
+1. **Progressive Disclosure for Answers**:
+   - Implemented `splitAnswer` in [`frontend/src/App.jsx`](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/frontend/src/App.jsx) to split legal answers on `\n\n`.
+   - The bolded first-line takeaway is rendered as an immediate summary.
+   - The full explanation paragraphs are contained inside a smooth expandable container (`.explanation-content`), toggled via a *"Show full explanation / Hide full explanation"* button with `ChevronDown`/`ChevronUp` icons.
+   - Styled transition and toggle button in [`frontend/src/index.css`](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/frontend/src/index.css).
+   - Added automatic reset of `showFullExplanation` on new query submissions or quick prompt selections.
+2. **Diagrammatic Scope Panel Layout**:
+   - Replaced paragraph `.scope-info-card` in `App.jsx` with a 5-card grid (`.scope-grid`):
+     - **Scale**: Patent Eligibility
+     - **Award**: GI & Trademark Protection
+     - **Leaf**: Biodiversity/ABS Compliance
+     - **Tag**: Product Classification
+     - **BookOpen**: Case Precedents
+   - Preserved out-of-scope decline note as a subtle caption below the card grid.
+---
+
+## 2026-09-04: Full Stack Docker Containerization & Orchestration
+
+### Work Completed
+1. **Backend Dockerfile** ([backend/Dockerfile](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/backend/Dockerfile)):
+   - Base image `python:3.11-slim`.
+   - Multi-layer caching: `COPY requirements.txt` and `pip install` before copying application code.
+   - Set working directory to `/app` with `PYTHONPATH=/app`.
+   - Exposes port 8000 and executes `uvicorn backend.app.main:app --host 0.0.0.0 --port 8000`.
+2. **Frontend Docker Infrastructure**:
+   - **Nginx Configuration** ([frontend/nginx.conf](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/frontend/nginx.conf)): Minimal Nginx configuration listening on port 80, serving SPA static files from `/usr/share/nginx/html` with fallback routing (`try_files $uri $uri/ /index.html;`), and proxying `/api/` requests to `http://backend:8000/api/`.
+   - **Multi-Stage Dockerfile** ([frontend/Dockerfile](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/frontend/Dockerfile)): Stage 1 uses `node:20-alpine` (`npm install` & `npm run build`), Stage 2 uses `nginx:alpine` serving production static distribution.
+3. **Docker Compose Specification** ([docker-compose.yml](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/docker-compose.yml)):
+   - Orchestrates `backend` and `frontend` services.
+   - Backend reads environment variables from `./backend/.env` via `env_file`.
+   - Mounts persistent ChromaDB volume `./backend/chroma_db:/app/backend/chroma_db`.
+   - Maps host ports `8000:8000` (Backend API) and `3000:80` (Frontend Nginx SPA).
+   - Validated configuration via `docker-compose config`.
+4. **README Update** ([README.md](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/README.md)):
+   - Added **Run with Docker** section with `docker-compose up --build`.
+   - Preserved existing local (non-Docker) setup commands.
+
+

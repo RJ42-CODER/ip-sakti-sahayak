@@ -91,3 +91,57 @@ This document records key architectural and technology selection choices made du
   - **Authoritative Disclaimer**: Every translation appends: *"This translation is provided for convenience. The English version above is authoritative in case of any discrepancy."*
 * **Rationale**:
   - Translating before verification or verifying translated regional text would introduce compounding linguistic ambiguity and degrade the determinism of the auditor. Decoupling verification (ground truth) from presentation (translation) preserves 100% legal correctness while delivering seamless regional accessibility.
+
+---
+
+### Decision 009: Concise Generation & Token Capping for Response Latency
+* **Date**: 2026-09-04
+* **Context**: Answer generation latency and verbose explanations increased response turnaround times.
+* **Choice**:
+  - Enforced a 400 max output token cap (`max_output_tokens=400` in Gemini `GenerationConfig` and `max_tokens=400` in Groq fallback).
+  - Updated prompt rules to command a concise, focused 2-4 sentence core legal answer.
+  - Ensured `translate_answer()` is strictly invoked only when `target_language` is explicitly passed and non-English.
+* **Rationale**:
+  - Cuts generation time significantly (from ~16.3s to ~10.2s end-to-end), keeps answers sharp and readable on mobile/desktop, and reduces token quota consumption on free-tier APIs.
+
+---
+
+### Decision 010: Distinct Out-of-Scope vs. Weak-Context Safeguard Signals
+* **Date**: 2026-09-04
+* **Context**: Previously, both domain pre-check failures and insufficient retrieved legal context returned the identical message: *"I don't have enough information to answer this confidently."*
+* **Choice**:
+  - **Out-of-Scope Pre-check Failure**: Returns: *"This question is outside my area — I'm built specifically for Ayurvedic IP and regulatory law questions."*
+  - **Weak In-Domain Context**: Retains: *"I don't have enough information to answer this confidently."*
+* **Rationale**:
+  - Provides clear diagnostic feedback to users and evaluators distinguishing boundary enforcement (refusal to answer general software, tax, or irrelevant questions) from corpus coverage gaps.
+
+---
+
+---
+
+### Decision 012: Progressive Disclosure UI Architecture for Legal Answers
+* **Date**: 2026-09-04
+* **Context**: Long legal explanations created layout clutter and reduced quick scanability for users seeking an immediate takeaway answer.
+* **Choice**:
+  - Implemented front-end progressive disclosure parsing in `App.jsx`.
+  - The bold first-line takeaway sentence is always rendered as the primary takeaway.
+  - Remaining explanation paragraphs are initially collapsed inside a CSS container with smooth height/opacity transitions, toggled via a *"Show full explanation / Hide full explanation"* control button.
+  - Reset `showFullExplanation` state to `false` automatically whenever a new query or sample chip prompt is submitted.
+* **Rationale**:
+  - Delivers immediate clarity with a bold takeaway line while preserving complete detailed statutory reasoning on demand, without requiring extra backend requests or incurring additional API latency.
+
+---
+
+---
+
+### Decision 014: Multi-Stage Docker & Docker Compose Containerization Architecture
+* **Date**: 2026-09-04
+* **Context**: Production deployment requirement to containerize the IP-SAKTI Sahayak application stack for portable execution.
+* **Choice**:
+  - **Backend Container**: Built from `python:3.11-slim` with multi-layer caching (separate `requirements.txt` layer prior to copying application code). Serves Uvicorn on port 8000.
+  - **Frontend Container**: Built as a multi-stage Docker build (`node:20-alpine` build stage + `nginx:alpine` runtime stage). Includes custom `nginx.conf` providing SPA client-side routing (`try_files $uri $uri/ /index.html;`) and `/api/` reverse proxying to `http://backend:8000/api/`.
+  - **Docker Compose Orchestration**: Configured `docker-compose.yml` at project root. Injects environment variables dynamically via `env_file: ./backend/.env` (ensuring API keys are never baked into image layers). Mounts `./backend/chroma_db` as a persistent host volume to preserve the vector database across container restarts.
+* **Rationale**:
+  - Provides a single-command deployment workflow (`docker-compose up --build`) while maintaining strict zero-secret leakage into images, fast layer rebuilding, persistent vector database storage, and complete separation of frontend SPA serving and backend API processing.
+
+

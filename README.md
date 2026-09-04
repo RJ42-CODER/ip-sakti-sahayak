@@ -89,24 +89,37 @@ Response:
 
 ## Setup
 
-### Backend
+### Run with Docker (Recommended)
+
+Run the entire application (Backend + Frontend + Vector Store) with a single command:
+
+```bash
+docker-compose up --build
+```
+
+Access the applications:
+- **Frontend SPA**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8000` (Docs at `http://localhost:8000/docs`)
+
+*Note: Ensure `backend/.env` is configured with your API key before launching containers.*
+
+### Local Setup (Non-Docker)
+
+#### Backend
+```bash
 cd backend
-
 pip install -r requirements.txt 
-
 cp .env.example .env 
-
 uvicorn app.main:app --reload  
+```
 
-### Frontend
-
+#### Frontend
+```bash
 cd frontend 
-
 npm install 
-
 cp .env.example .env 
-
 npm run dev
+```
 
 ## Documentation
 

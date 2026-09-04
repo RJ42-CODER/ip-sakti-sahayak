@@ -26,7 +26,10 @@ import {
   ChevronRight,
   Award,
   Layers,
-  Check
+  Check,
+  Leaf,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 export default function App() {
@@ -44,8 +47,9 @@ export default function App() {
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryResponse, setQueryResponse] = useState(null);
   const [queryError, setQueryError] = useState('');
+  const [showFullExplanation, setShowFullExplanation] = useState(false);
 
-  // Voice Interaction (Bhashini Web Speech API)
+  // Voice Interaction (Native Browser Web Speech API)
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -75,7 +79,7 @@ export default function App() {
       .catch(() => setBackendStatus({ online: false, checking: false }));
   }, []);
 
-  // Initialize Web Speech API for Bhashini Voice Input
+  // Initialize Web Speech API for Voice Input
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -105,7 +109,7 @@ export default function App() {
     }
   }, []);
 
-  // Language Code mapping for Bhashini Speech Recognition
+  // Language Code mapping for Speech Recognition
   const getLanguageCode = (langName) => {
     switch (langName) {
       case 'Hindi': return 'hi-IN';
@@ -123,7 +127,7 @@ export default function App() {
   // Toggle Voice Input
   const toggleVoiceInput = () => {
     if (!speechSupported || !recognitionRef.current) {
-      alert('Voice input is using Bhashini Web Speech API. Please allow microphone permissions in your browser.');
+      alert('Voice input is using Web Speech API. Please allow microphone permissions in your browser.');
       return;
     }
 
@@ -168,11 +172,12 @@ export default function App() {
     setQueryLoading(true);
     setQueryError('');
     setQueryResponse(null);
+    setShowFullExplanation(false);
 
     // Stop speaking if currently active
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsSpeaking(false);
-
+    
     try {
       const payload = { question, jurisdiction };
       if (targetLanguage) {
@@ -245,6 +250,7 @@ export default function App() {
   const handleQuickPrompt = (promptText, jur = 'India') => {
     setQuestion(promptText);
     setJurisdiction(jur);
+    setShowFullExplanation(false);
     // Smooth scroll to assistant workspace
     const el = document.getElementById('ask-workspace');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -274,6 +280,15 @@ export default function App() {
       default:
         return null;
     }
+  };
+
+  // Helper for splitting answer into bold first-line takeaway and detailed explanation
+  const splitAnswer = (answerText) => {
+    if (!answerText) return { firstLine: '', rest: '' };
+    const parts = answerText.trim().split(/\n\n+/);
+    const firstLine = parts[0] || '';
+    const rest = parts.slice(1).join('\n\n');
+    return { firstLine, rest };
   };
 
   // Check if verifier caveat is present in answer
@@ -326,7 +341,7 @@ export default function App() {
               <Layers className="w-4 h-4" /> How It Works
             </button>
             <div className="bhashini-header-pill">
-              <Sparkles className="w-3.5 h-3.5" /> Bhashini Multilingual Ready
+              <Sparkles className="w-3.5 h-3.5" /> Multilingual Support
             </div>
           </nav>
 
@@ -472,6 +487,35 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Scope Info Panel - Diagrammatic Grid */}
+              <div className="scope-grid-wrapper">
+                <div className="scope-grid">
+                  <div className="scope-card">
+                    <Scale className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Patent Eligibility</span>
+                  </div>
+                  <div className="scope-card">
+                    <Award className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>GI &amp; Trademark Protection</span>
+                  </div>
+                  <div className="scope-card">
+                    <Leaf className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Biodiversity/ABS Compliance</span>
+                  </div>
+                  <div className="scope-card">
+                    <Tag className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Product Classification</span>
+                  </div>
+                  <div className="scope-card">
+                    <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Case Precedents</span>
+                  </div>
+                </div>
+                <p className="scope-caption">
+                  Questions outside Indian/international IP and AYUSH regulatory law will be declined.
+                </p>
+              </div>
+
               {/* Main Input Textarea */}
               <form onSubmit={handleQuerySubmit} className="mt-6">
                 <div className="input-wrapper">
@@ -484,15 +528,15 @@ export default function App() {
 
                   <div className="input-actions-strip">
                     <div className="input-actions-left">
-                      {/* Bhashini Voice Input Button */}
+                      {/* Native Voice Input Button */}
                       <button 
                         type="button"
                         className={`btn-bhashini-voice ${isListening ? 'listening' : ''}`}
                         onClick={toggleVoiceInput}
-                        title="Voice speech-to-text input powered by Bhashini Engine"
+                        title="Voice speech-to-text input powered by Web Speech API"
                       >
                         {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                        {isListening ? 'Listening...' : '🎙 Speak with Bhashini'}
+                        {isListening ? 'Listening...' : '🎙 Voice Input'}
                       </button>
                     </div>
 
@@ -595,10 +639,44 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Markdown Main Answer */}
-                <div className="answer-markdown">
-                  <ReactMarkdown>{queryResponse.answer}</ReactMarkdown>
-                </div>
+                {/* Markdown Main Answer with Progressive Disclosure */}
+                {(() => {
+                  const { firstLine, rest } = splitAnswer(queryResponse.answer);
+                  return (
+                    <div className="answer-wrapper">
+                      {/* Bolded Takeaway Line Always Rendered */}
+                      <div className="answer-markdown takeaway-line">
+                        <ReactMarkdown>{firstLine}</ReactMarkdown>
+                      </div>
+
+                      {/* Full Explanation Collapsed by Default */}
+                      {rest && (
+                        <>
+                          <div className={`explanation-content ${showFullExplanation ? 'expanded' : 'collapsed'}`}>
+                            <div className="answer-markdown mt-3">
+                              <ReactMarkdown>{rest}</ReactMarkdown>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-toggle-explanation"
+                            onClick={() => setShowFullExplanation(!showFullExplanation)}
+                          >
+                            {showFullExplanation ? (
+                              <>
+                                <ChevronUp className="w-4 h-4" /> Hide full explanation
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-4 h-4" /> Show full explanation
+                              </>
+                            )}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Regional Language Translation Display Box */}
                 {queryResponse.translated_answer && (
