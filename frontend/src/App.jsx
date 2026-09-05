@@ -32,6 +32,64 @@ import {
   ChevronUp
 } from 'lucide-react';
 
+const DEFAULT_UI_TEXTS = {
+  gov_banner: "MINISTRY OF AYUSH • GOVERNMENT OF INDIA",
+  nav_brand_title: "IP-SAKTI Sahayak",
+  nav_brand_sub: "Ayurvedic Intellectual Property & Regulatory AI Assistant",
+  nav_ask: "Ask IP-SAKTI",
+  nav_classifier: "Regulatory Classifier",
+  nav_how_it_works: "How It Works",
+  nav_multilingual: "Multilingual Support",
+  hero_badge: "AI Guidance for Traditional Knowledge & IP",
+  hero_title_1: "Protecting Wisdom.",
+  hero_title_2: "Navigating",
+  hero_title_3: "Ayurvedic IP Law.",
+  hero_desc: "Intelligent legal guidance for Ayurvedic formulations, patentability rules, Traditional Knowledge protection, Geographical Indications, and regulatory compliance.",
+  hero_btn_ask: "Ask IP-SAKTI",
+  hero_btn_classify: "Classify Formulation",
+  tag_patent: "Patents Act, 1970 (Sec 3(p))",
+  tag_bio: "Biological Diversity Act (ABS)",
+  tag_fssai: "FSSAI Ayurveda-Aahar",
+  tag_trips: "TRIPS & Nagoya Protocol",
+  tab_ask_legal: "Ask IP-SAKTI Legal Engine",
+  tab_classifier: "Product Regulatory Classifier",
+  tab_corpus: "Legal Corpus & Architecture",
+  target_lang_label: "Target Language:",
+  jurisdiction_label: "Jurisdiction:",
+  india_law: "India Law",
+  international_law: "International Law",
+  scope_patent: "Patent Eligibility",
+  scope_gi: "GI & Trademark Protection",
+  scope_bio: "Biodiversity/ABS Compliance",
+  scope_prod: "Product Classification",
+  scope_case: "Case Precedents",
+  scope_caption: "Questions outside Indian/international IP and AYUSH regulatory law will be declined.",
+  ask_input_placeholder: "Ask IP-SAKTI about Ayurvedic patents, Traditional Knowledge protection, GI, trademarks, or Ayurveda regulations...",
+  voice_input_btn: "Voice Input",
+  voice_listening: "Listening...",
+  ask_btn: "Ask IP-SAKTI",
+  analyzing_text: "Analyzing Corpus...",
+  sample_q_header: "SAMPLE QUESTIONS (CLICK TO ASK):",
+  citations_heading: "Verified Statutory Sources & Citations",
+  escalate_btn: "Escalate to Human Legal Expert",
+  classifier_title: "Product Regulatory Classifier",
+  classifier_desc: "Describe your Ayurvedic formulation or product below to classify it into one of the six regulatory categories under Indian Law.",
+  classify_input_placeholder: "Enter full product details e.g. A herbal hair oil made of Amla and Bhringraj processed using coconut oil as per Sharangdhara Samhita...",
+  classify_submit_btn: "Classify Product Category"
+};
+
+const getVerifiedUrl = (url, sourceName) => {
+  if (url && typeof url === 'string' && url.startsWith('http')) return url;
+  const s = (sourceName || '').toLowerCase();
+  if (s.includes('patent')) return 'https://ipindia.gov.in/acts/patent-act-1970';
+  if (s.includes('biodiversity')) return 'https://indiacode.gov.in/act/62219d21-0553-405b-9ccb-a11b4d9c41c2/sections';
+  if (s.includes('drug')) return 'https://indiacode.gov.in/act/cd8f2852-7085-432b-a264-7b73a6f01fff/sections';
+  if (s.includes('trips')) return 'https://www.wto.org/english/docs_e/legal_e/27-trips_04c_e.htm';
+  if (s.includes('fssai')) return 'https://www.fssai.gov.in/';
+  if (s.includes('cbd') || s.includes('nagoya')) return 'https://www.cbd.int/';
+  return 'https://indiacode.gov.in/';
+};
+
 export default function App() {
   // Navigation & Active View State
   const [activeTab, setActiveTab] = useState('query');
@@ -48,6 +106,19 @@ export default function App() {
   const [queryResponse, setQueryResponse] = useState(null);
   const [queryError, setQueryError] = useState('');
   const [showFullExplanation, setShowFullExplanation] = useState(false);
+  // Session ID Management (Short-Term Conversation Context)
+  const [sessionId, setSessionId] = useState(() => {
+    let saved = localStorage.getItem('ipsakti_session_id');
+    if (!saved) {
+      saved = 'sess_' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('ipsakti_session_id', saved);
+    }
+    return saved;
+  });
+
+  // Dynamic LLM Translation State
+  const [uiTexts, setUiTexts] = useState(DEFAULT_UI_TEXTS);
+  const [uiTranslating, setUiTranslating] = useState(false);
 
   // Voice Interaction (Native Browser Web Speech API)
   const [isListening, setIsListening] = useState(false);
@@ -64,6 +135,33 @@ export default function App() {
   // Escalation Modal State
   const [showEscalatedModal, setShowEscalatedModal] = useState(false);
   const [escalateSubmitted, setEscalateSubmitted] = useState(false);
+
+  // Dynamic LLM Translation Effect using IF Statements to check selected language
+  useEffect(() => {
+    if (!targetLanguage || targetLanguage.trim().toLowerCase() === 'english') {
+      setUiTexts(DEFAULT_UI_TEXTS);
+    } else {
+      setUiTranslating(true);
+      fetch('/api/translate_ui', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          texts: DEFAULT_UI_TEXTS,
+          target_language: targetLanguage
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.translated_texts) {
+            setUiTexts(data.translated_texts);
+          }
+        })
+        .catch(err => console.warn('Dynamic LLM UI translation warning:', err))
+        .finally(() => setUiTranslating(false));
+    }
+  }, [targetLanguage]);
+
+  const t = (key, fallback) => uiTexts[key] || fallback || DEFAULT_UI_TEXTS[key] || '';
 
   // Check Backend Health on Mount
   useEffect(() => {
@@ -178,8 +276,11 @@ export default function App() {
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsSpeaking(false);
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
     try {
-      const payload = { question, jurisdiction };
+      const payload = { question, jurisdiction, session_id: sessionId };
       if (targetLanguage) {
         payload.target_language = targetLanguage;
       }
@@ -187,8 +288,10 @@ export default function App() {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         let errText = `Server returned status ${res.status}`;
@@ -204,7 +307,12 @@ export default function App() {
       const data = await res.json();
       setQueryResponse(data);
     } catch (err) {
-      setQueryError(err.message || 'Failed to connect to backend legal engine.');
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        setQueryError('Request timed out. Please try asking again.');
+      } else {
+        setQueryError(err.message || 'Failed to connect to backend legal engine.');
+      }
     } finally {
       setQueryLoading(false);
     }
@@ -304,7 +412,7 @@ export default function App() {
             <span className="gov-dot-white"></span>
             <span className="gov-dot-green"></span>
           </div>
-          <span>MINISTRY OF AYUSH • GOVERNMENT OF INDIA</span>
+          <span>{t('gov_banner', 'MINISTRY OF AYUSH • GOVERNMENT OF INDIA')}</span>
         </div>
       </div>
 
@@ -316,8 +424,8 @@ export default function App() {
               <Scale size={24} />
             </div>
             <div className="brand-info">
-              <h1>IP-SAKTI Sahayak</h1>
-              <p>Ayurvedic Intellectual Property & Regulatory AI Assistant</p>
+              <h1>{t('nav_brand_title', 'IP-SAKTI Sahayak')}</h1>
+              <p>{t('nav_brand_sub', 'Ayurvedic Intellectual Property & Regulatory AI Assistant')}</p>
             </div>
           </a>
 
@@ -326,22 +434,22 @@ export default function App() {
               className={`nav-link-btn ${activeTab === 'query' ? 'active' : ''}`}
               onClick={() => setActiveTab('query')}
             >
-              <Search className="w-4 h-4" /> Ask IP-SAKTI
+              <Search className="w-4 h-4" /> {t('nav_ask', 'Ask IP-SAKTI')}
             </button>
             <button 
               className={`nav-link-btn ${activeTab === 'classify' ? 'active' : ''}`}
               onClick={() => setActiveTab('classify')}
             >
-              <Tag className="w-4 h-4" /> Regulatory Classifier
+              <Tag className="w-4 h-4" /> {t('nav_classifier', 'Regulatory Classifier')}
             </button>
             <button 
               className={`nav-link-btn ${activeTab === 'how-it-works' ? 'active' : ''}`}
               onClick={() => setActiveTab('how-it-works')}
             >
-              <Layers className="w-4 h-4" /> How It Works
+              <Layers className="w-4 h-4" /> {t('nav_how_it_works', 'How It Works')}
             </button>
             <div className="bhashini-header-pill">
-              <Sparkles className="w-3.5 h-3.5" /> Multilingual Support
+              <Sparkles className="w-3.5 h-3.5" /> {t('nav_multilingual', 'Multilingual Support')}
             </div>
           </nav>
 
@@ -364,17 +472,17 @@ export default function App() {
 
         <div className="hero-content">
           <div className="hero-badge">
-            <BookOpen className="w-4 h-4" /> AI Guidance for Traditional Knowledge & IP
+            <BookOpen className="w-4 h-4" /> {t('hero_badge', 'AI Guidance for Traditional Knowledge & IP')}
           </div>
 
           <h1 className="hero-title">
-            Protecting Wisdom. <br />
-            Navigating <span className="hero-title-highlight">Ayurvedic IP Law.</span>
+            {t('hero_title_1', 'Protecting Wisdom.')} <br />
+            {t('hero_title_2', 'Navigating')}&nbsp;
+            <span className="hero-title-highlight">{t('hero_title_3', 'Ayurvedic IP Law.')}</span>
           </h1>
 
           <p className="hero-description">
-            Intelligent legal guidance for Ayurvedic formulations, patentability rules, 
-            Traditional Knowledge protection, Geographical Indications, and regulatory compliance.
+            {t('hero_desc', 'Intelligent legal guidance for Ayurvedic formulations, patentability rules, Traditional Knowledge protection, Geographical Indications, and regulatory compliance.')}
           </p>
 
           <div className="hero-actions">
@@ -386,7 +494,7 @@ export default function App() {
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
               }}
             >
-              Ask IP-SAKTI <ArrowRight className="w-5 h-5" />
+              {t('hero_btn_ask', 'Ask IP-SAKTI')} <ArrowRight className="w-5 h-5" />
             </button>
             <button 
               className="btn-hero-secondary"
@@ -396,15 +504,15 @@ export default function App() {
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
               }}
             >
-              <Tag className="w-4 h-4" /> Classify Formulation
+              <Tag className="w-4 h-4" /> {t('hero_btn_classify', 'Classify Formulation')}
             </button>
           </div>
 
           <div className="hero-feature-tags">
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> Patents Act, 1970 (Sec 3(p))</span>
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> Biological Diversity Act (ABS)</span>
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> FSSAI Ayurveda-Aahar</span>
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> TRIPS & Nagoya Protocol</span>
+            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_patent', 'Patents Act, 1970 (Sec 3(p))')}</span>
+            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_bio', 'Biological Diversity Act (ABS)')}</span>
+            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_fssai', 'FSSAI Ayurveda-Aahar')}</span>
+            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_trips', 'TRIPS & Nagoya Protocol')}</span>
           </div>
         </div>
       </section>
@@ -413,27 +521,24 @@ export default function App() {
       <main className="workspace-container" id="ask-workspace">
         {/* Navigation Tabs Bar for Workspace */}
         <div className="flex justify-center mb-8">
-          <div className="jurisdiction-switch" style={{ padding: '6px', background: 'var(--bg-glass-card)' }}>
+          <div className="workspace-tab-switcher">
             <button 
-              className={`jurisdiction-btn ${activeTab === 'query' ? 'active' : ''}`}
+              className={`workspace-tab-btn ${activeTab === 'query' ? 'active' : ''}`}
               onClick={() => setActiveTab('query')}
-              style={{ fontSize: '0.95rem', padding: '10px 24px' }}
             >
-              <Search className="w-4 h-4" /> Ask IP-SAKTI Legal Engine
+              <Search className="w-4 h-4" /> {t('tab_ask_legal', 'Ask IP-SAKTI Legal Engine')}
             </button>
             <button 
-              className={`jurisdiction-btn ${activeTab === 'classify' ? 'active' : ''}`}
+              className={`workspace-tab-btn ${activeTab === 'classify' ? 'active' : ''}`}
               onClick={() => setActiveTab('classify')}
-              style={{ fontSize: '0.95rem', padding: '10px 24px' }}
             >
-              <Tag className="w-4 h-4" /> Product Regulatory Classifier
+              <Tag className="w-4 h-4" /> {t('tab_classifier', 'Product Regulatory Classifier')}
             </button>
             <button 
-              className={`jurisdiction-btn ${activeTab === 'how-it-works' ? 'active' : ''}`}
+              className={`workspace-tab-btn ${activeTab === 'how-it-works' ? 'active' : ''}`}
               onClick={() => setActiveTab('how-it-works')}
-              style={{ fontSize: '0.95rem', padding: '10px 24px' }}
             >
-              <Layers className="w-4 h-4" /> Legal Corpus & Architecture
+              <Layers className="w-4 h-4" /> {t('tab_corpus', 'Legal Corpus & Architecture')}
             </button>
           </div>
         </div>
@@ -445,9 +550,10 @@ export default function App() {
               {/* Workspace Controls Bar */}
               <div className="query-controls-bar">
                 <div className="control-group">
-                  <span className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-emerald-400" /> Target Language:
-                  </span>
+                  <div className="control-label">
+                    <Globe className="w-4 h-4 text-emerald-400" />
+                    <span>{t('target_lang_label', 'Target Language:')}</span>
+                  </div>
                   <select 
                     className="custom-select"
                     value={targetLanguage}
@@ -467,21 +573,26 @@ export default function App() {
                 </div>
 
                 <div className="control-group">
-                  <span className="text-sm font-semibold text-slate-300">Jurisdiction:</span>
+                  <div className="control-label">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>{t('jurisdiction_label', 'Jurisdiction:')}</span>
+                  </div>
                   <div className="jurisdiction-switch">
                     <button 
                       type="button"
                       className={`jurisdiction-btn ${jurisdiction === 'India' ? 'active' : ''}`}
                       onClick={() => setJurisdiction('India')}
                     >
-                      🇮🇳 India Law
+                      <Scale className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                      <span>{t('india_law', 'India Law')}</span>
                     </button>
                     <button 
                       type="button"
                       className={`jurisdiction-btn ${jurisdiction === 'International' ? 'active' : ''}`}
                       onClick={() => setJurisdiction('International')}
                     >
-                      🌐 International Law
+                      <Globe className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                      <span>{t('international_law', 'International Law')}</span>
                     </button>
                   </div>
                 </div>
@@ -492,27 +603,27 @@ export default function App() {
                 <div className="scope-grid">
                   <div className="scope-card">
                     <Scale className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Patent Eligibility</span>
+                    <span>{t('scope_patent', 'Patent Eligibility')}</span>
                   </div>
                   <div className="scope-card">
                     <Award className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>GI &amp; Trademark Protection</span>
+                    <span>{t('scope_gi', 'GI & Trademark Protection')}</span>
                   </div>
                   <div className="scope-card">
                     <Leaf className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Biodiversity/ABS Compliance</span>
+                    <span>{t('scope_bio', 'Biodiversity/ABS Compliance')}</span>
                   </div>
                   <div className="scope-card">
                     <Tag className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Product Classification</span>
+                    <span>{t('scope_prod', 'Product Classification')}</span>
                   </div>
                   <div className="scope-card">
                     <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Case Precedents</span>
+                    <span>{t('scope_case', 'Case Precedents')}</span>
                   </div>
                 </div>
                 <p className="scope-caption">
-                  Questions outside Indian/international IP and AYUSH regulatory law will be declined.
+                  {t('scope_caption', 'Questions outside Indian/international IP and AYUSH regulatory law will be declined.')}
                 </p>
               </div>
 
@@ -521,7 +632,7 @@ export default function App() {
                 <div className="input-wrapper">
                   <textarea 
                     className="prompt-textarea"
-                    placeholder="Ask IP-SAKTI about Ayurvedic patents, Traditional Knowledge protection, GI, trademarks, or Ayurveda regulations..."
+                    placeholder={t('ask_input_placeholder', 'Ask IP-SAKTI about Ayurvedic patents, Traditional Knowledge protection, GI, trademarks, or Ayurveda regulations...')}
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                   />
@@ -536,7 +647,7 @@ export default function App() {
                         title="Voice speech-to-text input powered by Web Speech API"
                       >
                         {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                        {isListening ? 'Listening...' : '🎙 Voice Input'}
+                        {isListening ? t('voice_listening', 'Listening...') : `🎙 ${t('voice_input_btn', 'Voice Input')}`}
                       </button>
                     </div>
 
@@ -549,12 +660,12 @@ export default function App() {
                         {queryLoading ? (
                           <>
                             <Loader2 className="w-4 h-4 spinner" />
-                            Analyzing Corpus...
+                            {t('analyzing_text', 'Analyzing Corpus...')}
                           </>
                         ) : (
                           <>
                             <Send className="w-4 h-4" />
-                            Ask IP-SAKTI
+                            {t('ask_btn', 'Ask IP-SAKTI')}
                           </>
                         )}
                       </button>
@@ -565,7 +676,7 @@ export default function App() {
 
               {/* Sample Prompts Chips */}
               <div className="sample-queries-container">
-                <span className="sample-label">Sample Questions (Click to Ask):</span>
+                <span className="sample-label">{t('sample_q_header', 'SAMPLE QUESTIONS (CLICK TO ASK):')}</span>
                 <div className="sample-chips-grid">
                   <button 
                     type="button"
@@ -705,12 +816,12 @@ export default function App() {
                 {/* Citations Grid */}
                 {queryResponse.citations && queryResponse.citations.length > 0 && (
                   <div className="citations-wrapper">
-                    <div className="citations-heading">Verified Statutory Sources & Citations</div>
+                    <div className="citations-heading">{t('citations_heading', 'Verified Statutory Sources & Citations')}</div>
                     <div className="citations-grid">
                       {queryResponse.citations.map((cit, idx) => (
                         <a 
                           key={idx}
-                          href={cit.url}
+                          href={getVerifiedUrl(cit.url, cit.source_name)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="citation-card"
