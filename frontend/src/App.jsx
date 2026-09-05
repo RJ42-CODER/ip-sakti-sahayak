@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { 
-  Scale, 
-  Globe, 
-  ShieldCheck, 
-  AlertTriangle, 
-  ExternalLink, 
-  Loader2, 
-  Search, 
-  Tag, 
+import remarkGfm from 'remark-gfm';
+import {
+  Scale,
+  Globe,
+  ShieldCheck,
+  AlertTriangle,
+  ExternalLink,
+  Loader2,
+  Search,
+  Tag,
   Send,
   CheckCircle2,
   X,
@@ -68,7 +69,7 @@ const DEFAULT_UI_TEXTS = {
   voice_input_btn: "Voice Input",
   voice_listening: "Listening...",
   ask_btn: "Ask IP-SAKTI",
-  analyzing_text: "Analyzing Corpus...",
+  analyzing_text: "Analyzing legal corpus & verifying claims...",
   sample_q_header: "SAMPLE QUESTIONS (CLICK TO ASK):",
   citations_heading: "Verified Statutory Sources & Citations",
   escalate_btn: "Escalate to Human Legal Expert",
@@ -275,9 +276,9 @@ export default function App() {
     // Stop speaking if currently active
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsSpeaking(false);
-    
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const payload = { question, jurisdiction, session_id: sessionId };
@@ -430,19 +431,19 @@ export default function App() {
           </a>
 
           <nav className="nav-links">
-            <button 
+            <button
               className={`nav-link-btn ${activeTab === 'query' ? 'active' : ''}`}
               onClick={() => setActiveTab('query')}
             >
               <Search className="w-4 h-4" /> {t('nav_ask', 'Ask IP-SAKTI')}
             </button>
-            <button 
+            <button
               className={`nav-link-btn ${activeTab === 'classify' ? 'active' : ''}`}
               onClick={() => setActiveTab('classify')}
             >
               <Tag className="w-4 h-4" /> {t('nav_classifier', 'Regulatory Classifier')}
             </button>
-            <button 
+            <button
               className={`nav-link-btn ${activeTab === 'how-it-works' ? 'active' : ''}`}
               onClick={() => setActiveTab('how-it-works')}
             >
@@ -462,9 +463,9 @@ export default function App() {
       {/* HERO SECTION WITH AYURVEDIC PHOTOGRAPH */}
       <section className="hero-section">
         <div className="hero-bg-container">
-          <img 
-            src="/ayurvedic.jpg" 
-            alt="Ayurvedic Traditional Knowledge background" 
+          <img
+            src="/ayurvedic.jpg"
+            alt="Ayurvedic Traditional Knowledge background"
             className="hero-bg-image"
           />
           <div className="hero-overlay"></div>
@@ -486,7 +487,7 @@ export default function App() {
           </p>
 
           <div className="hero-actions">
-            <button 
+            <button
               className="btn-hero-primary"
               onClick={() => {
                 setActiveTab('query');
@@ -496,7 +497,7 @@ export default function App() {
             >
               {t('hero_btn_ask', 'Ask IP-SAKTI')} <ArrowRight className="w-5 h-5" />
             </button>
-            <button 
+            <button
               className="btn-hero-secondary"
               onClick={() => {
                 setActiveTab('classify');
@@ -522,19 +523,19 @@ export default function App() {
         {/* Navigation Tabs Bar for Workspace */}
         <div className="flex justify-center mb-8">
           <div className="workspace-tab-switcher">
-            <button 
+            <button
               className={`workspace-tab-btn ${activeTab === 'query' ? 'active' : ''}`}
               onClick={() => setActiveTab('query')}
             >
               <Search className="w-4 h-4" /> {t('tab_ask_legal', 'Ask IP-SAKTI Legal Engine')}
             </button>
-            <button 
+            <button
               className={`workspace-tab-btn ${activeTab === 'classify' ? 'active' : ''}`}
               onClick={() => setActiveTab('classify')}
             >
               <Tag className="w-4 h-4" /> {t('tab_classifier', 'Product Regulatory Classifier')}
             </button>
-            <button 
+            <button
               className={`workspace-tab-btn ${activeTab === 'how-it-works' ? 'active' : ''}`}
               onClick={() => setActiveTab('how-it-works')}
             >
@@ -554,7 +555,7 @@ export default function App() {
                     <Globe className="w-4 h-4 text-emerald-400" />
                     <span>{t('target_lang_label', 'Target Language:')}</span>
                   </div>
-                  <select 
+                  <select
                     className="custom-select"
                     value={targetLanguage}
                     onChange={(e) => setTargetLanguage(e.target.value)}
@@ -578,7 +579,7 @@ export default function App() {
                     <span>{t('jurisdiction_label', 'Jurisdiction:')}</span>
                   </div>
                   <div className="jurisdiction-switch">
-                    <button 
+                    <button
                       type="button"
                       className={`jurisdiction-btn ${jurisdiction === 'India' ? 'active' : ''}`}
                       onClick={() => setJurisdiction('India')}
@@ -586,7 +587,7 @@ export default function App() {
                       <Scale className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                       <span>{t('india_law', 'India Law')}</span>
                     </button>
-                    <button 
+                    <button
                       type="button"
                       className={`jurisdiction-btn ${jurisdiction === 'International' ? 'active' : ''}`}
                       onClick={() => setJurisdiction('International')}
@@ -630,7 +631,7 @@ export default function App() {
               {/* Main Input Textarea */}
               <form onSubmit={handleQuerySubmit} className="mt-6">
                 <div className="input-wrapper">
-                  <textarea 
+                  <textarea
                     className="prompt-textarea"
                     placeholder={t('ask_input_placeholder', 'Ask IP-SAKTI about Ayurvedic patents, Traditional Knowledge protection, GI, trademarks, or Ayurveda regulations...')}
                     value={question}
@@ -640,7 +641,7 @@ export default function App() {
                   <div className="input-actions-strip">
                     <div className="input-actions-left">
                       {/* Native Voice Input Button */}
-                      <button 
+                      <button
                         type="button"
                         className={`btn-bhashini-voice ${isListening ? 'listening' : ''}`}
                         onClick={toggleVoiceInput}
@@ -652,8 +653,8 @@ export default function App() {
                     </div>
 
                     <div className="input-actions-right">
-                      <button 
-                        type="submit" 
+                      <button
+                        type="submit"
                         className="btn-submit-query"
                         disabled={queryLoading || !question.trim()}
                       >
@@ -678,28 +679,28 @@ export default function App() {
               <div className="sample-queries-container">
                 <span className="sample-label">{t('sample_q_header', 'SAMPLE QUESTIONS (CLICK TO ASK):')}</span>
                 <div className="sample-chips-grid">
-                  <button 
+                  <button
                     type="button"
                     className="sample-chip"
                     onClick={() => handleQuickPrompt("Can I patent a classical Ayurvedic formulation like Chawanprash in India?", "India")}
                   >
                     🌿 Chawanprash Patentability
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className="sample-chip"
                     onClick={() => handleQuickPrompt("Do I need NBA approval to export Indian medicinal plants for foreign commercial research?", "India")}
                   >
                     📜 NBA Medicinal Plant Export
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className="sample-chip"
                     onClick={() => handleQuickPrompt("What does Article 27 of the TRIPS Agreement state regarding patent exclusions for therapeutic methods?", "International")}
                   >
                     🌐 TRIPS Article 27 Exclusions
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className="sample-chip"
                     onClick={() => handleQuickPrompt("What happened in the Neem patent case and why was it revoked?", "International")}
@@ -738,7 +739,7 @@ export default function App() {
                     {getConfidenceBadge(queryResponse.confidence)}
 
                     {/* Text-to-Speech Button */}
-                    <button 
+                    <button
                       type="button"
                       className="btn-hero-secondary"
                       style={{ padding: '6px 14px', fontSize: '0.8rem' }}
@@ -750,44 +751,154 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Markdown Main Answer with Progressive Disclosure */}
-                {(() => {
-                  const { firstLine, rest } = splitAnswer(queryResponse.answer);
-                  return (
-                    <div className="answer-wrapper">
-                      {/* Bolded Takeaway Line Always Rendered */}
-                      <div className="answer-markdown takeaway-line">
-                        <ReactMarkdown>{firstLine}</ReactMarkdown>
+                {/* Structured Output UI Renderer */}
+                {queryResponse.structured_content ? (
+                  <div className="structured-content-container space-y-4 my-4">
+                    {/* Assessment & Outcome Header Card */}
+                    {queryResponse.structured_content.assessment &&
+                     (queryResponse.structured_content.intent !== 'historical_case' ||
+                      queryResponse.structured_content.assessment !== queryResponse.structured_content.what_happened) && (
+                      <div className="p-4 rounded-xl bg-slate-900/80 border border-emerald-500/30">
+                        <h3 className="text-xs uppercase tracking-wider font-bold text-emerald-400 mb-1">Legal Assessment</h3>
+                        <div className="text-slate-100 text-sm leading-relaxed">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.structured_content.assessment}</ReactMarkdown>
+                        </div>
                       </div>
+                    )}
 
-                      {/* Full Explanation Collapsed by Default */}
-                      {rest && (
-                        <>
-                          <div className={`explanation-content ${showFullExplanation ? 'expanded' : 'collapsed'}`}>
-                            <div className="answer-markdown mt-3">
-                              <ReactMarkdown>{rest}</ReactMarkdown>
+                    {queryResponse.structured_content.outcome && (
+                      <div className="p-3.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 flex items-center gap-3 text-emerald-200">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                        <div className="text-xs font-semibold">
+                          <span className="text-emerald-400 block text-[10px] uppercase">Core Verdict / Legal Outcome</span>
+                          {queryResponse.structured_content.outcome}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Legal Basis / Statutory Provisions */}
+                    {queryResponse.structured_content.legal_basis && queryResponse.structured_content.legal_basis.length > 0 && (
+                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Legal Basis & Statutory Provisions</h4>
+                        <ul className="space-y-1.5 text-xs text-slate-300">
+                          {queryResponse.structured_content.legal_basis.map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-emerald-400 font-bold">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Required Documents / Procedure (Patent Procedure) */}
+                    {queryResponse.structured_content.required_documents && queryResponse.structured_content.required_documents.length > 0 && (
+                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">Required Application Documents</h4>
+                        <ul className="space-y-1 text-xs text-slate-300">
+                          {queryResponse.structured_content.required_documents.map((doc, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                              <span>{doc}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {queryResponse.structured_content.procedure && queryResponse.structured_content.procedure.length > 0 && (
+                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">Filing Procedure & Steps</h4>
+                        <ol className="space-y-1 text-xs text-slate-300 list-decimal list-inside">
+                          {queryResponse.structured_content.procedure.map((step, idx) => (
+                            <li key={idx} className="leading-relaxed">{step}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    {/* Historical Case Precedents */}
+                    {queryResponse.structured_content.what_happened && queryResponse.structured_content.intent === 'historical_case' && (
+                      <div className="p-4 rounded-xl bg-slate-900/60 border border-amber-500/30">
+                        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">Case Facts & Background</h4>
+                        <div className="text-xs text-slate-300 leading-relaxed space-y-2">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.structured_content.what_happened}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+
+                    {queryResponse.structured_content.why_it_matters && queryResponse.structured_content.intent === 'historical_case' && (
+                      <div className="p-4 rounded-xl bg-slate-900/60 border border-purple-500/30">
+                        <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Precedent Significance & Legal Impact</h4>
+                        <div className="text-xs text-slate-300 leading-relaxed space-y-2">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.structured_content.why_it_matters}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Alternative IP Routes */}
+                    {queryResponse.structured_content.alternatives && queryResponse.structured_content.alternatives.length > 0 && (
+                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <h4 className="text-xs font-bold text-teal-300 uppercase tracking-wider mb-2">Alternative IP Protection Routes</h4>
+                        <ul className="space-y-1 text-xs text-slate-300">
+                          {queryResponse.structured_content.alternatives.map((alt, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <ShieldCheck className="w-3.5 h-3.5 text-teal-400 shrink-0 mt-0.5" />
+                              <span>{alt}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Next Action */}
+                    {queryResponse.structured_content.next_action && (
+                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
+                        <ChevronRight className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <div className="text-xs text-slate-300">
+                          <span className="font-bold text-slate-200 block mb-0.5">Recommended Next Action</span>
+                          {queryResponse.structured_content.next_action}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Fallback Markdown Main Answer */
+                  (() => {
+                    const { firstLine, rest } = splitAnswer(queryResponse.answer);
+                    return (
+                      <div className="answer-wrapper">
+                        <div className="answer-markdown takeaway-line">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{firstLine}</ReactMarkdown>
+                        </div>
+                        {rest && (
+                          <>
+                            <div className={`explanation-content ${showFullExplanation ? 'expanded' : 'collapsed'}`}>
+                              <div className="answer-markdown mt-3">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{rest}</ReactMarkdown>
+                              </div>
                             </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn-toggle-explanation"
-                            onClick={() => setShowFullExplanation(!showFullExplanation)}
-                          >
-                            {showFullExplanation ? (
-                              <>
-                                <ChevronUp className="w-4 h-4" /> Hide full explanation
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="w-4 h-4" /> Show full explanation
-                              </>
-                            )}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
+                            <button
+                              type="button"
+                              className="btn-toggle-explanation"
+                              onClick={() => setShowFullExplanation(!showFullExplanation)}
+                            >
+                              {showFullExplanation ? (
+                                <>
+                                  <ChevronUp className="w-4 h-4" /> Hide full explanation
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-4 h-4" /> Show full explanation
+                                </>
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
 
                 {/* Regional Language Translation Display Box */}
                 {queryResponse.translated_answer && (
@@ -797,7 +908,7 @@ export default function App() {
                       Translated Explanation ({targetLanguage || 'Regional Language'})
                     </div>
                     <div className="answer-markdown">
-                      <ReactMarkdown>{queryResponse.translated_answer}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.translated_answer}</ReactMarkdown>
                     </div>
                   </div>
                 )}
@@ -819,7 +930,7 @@ export default function App() {
                     <div className="citations-heading">{t('citations_heading', 'Verified Statutory Sources & Citations')}</div>
                     <div className="citations-grid">
                       {queryResponse.citations.map((cit, idx) => (
-                        <a 
+                        <a
                           key={idx}
                           href={getVerifiedUrl(cit.url, cit.source_name)}
                           target="_blank"
@@ -845,7 +956,7 @@ export default function App() {
                   </div>
 
                   {queryResponse.escalate_available && (
-                    <button 
+                    <button
                       type="button"
                       className="btn-escalate"
                       onClick={() => setShowEscalatedModal(true)}
@@ -875,7 +986,7 @@ export default function App() {
               <form onSubmit={handleClassifySubmit}>
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-slate-300 mb-2">Formulation & Manufacturing Description</label>
-                  <textarea 
+                  <textarea
                     className="prompt-textarea"
                     style={{ minHeight: '110px' }}
                     placeholder="Enter full formulation details (e.g., Herbal hair oil containing Amla and Bhringraj processed using coconut oil as per Sharangdhara Samhita)..."
@@ -888,29 +999,29 @@ export default function App() {
                 <div className="sample-queries-container mb-4">
                   <span className="sample-label">Product Formulation Presets:</span>
                   <div className="sample-chips-grid">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="sample-chip"
                       onClick={() => setDescription("Chawanprash manufactured strictly according to the formula described in Sharangdhara Samhita.")}
                     >
                       📜 Classical Chawanprash
                     </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="sample-chip"
                       onClick={() => setDescription("Ayurvedic cough syrup containing Ashwagandha and Tulsi in modern syrup vehicle packaged in 100ml PET bottle.")}
                     >
                       🧪 Proprietary Cough Syrup
                     </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="sample-chip"
                       onClick={() => setDescription("A novel food beverage infused with Brahmi and Shankhpushpi marketed as a daily health tonic under FSSAI regulations.")}
                     >
                       🍵 Ayurveda-Aahar Beverage
                     </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="sample-chip"
                       onClick={() => setDescription("Herbal hair vitalizing oil with Amla, Bhringraj, and Coconut oil for external scalp massage.")}
                     >
@@ -920,7 +1031,7 @@ export default function App() {
                 </div>
 
                 <div className="flex justify-end mt-4">
-                  <button 
+                  <button
                     type="submit"
                     className="btn-submit-query"
                     disabled={classifyLoading || !description.trim()}
@@ -951,15 +1062,15 @@ export default function App() {
                   <h3 className="category-badge-title">{classifyResponse.category}</h3>
 
                   <p className="category-explanation">
-                    {classifyResponse.category === 'Classical Medicine' && 
+                    {classifyResponse.category === 'Classical Medicine' &&
                       'Recognized under the First Schedule of the Drugs and Cosmetics Act, 1940. Excluded from patent protection under Section 3(p) of the Patents Act, 1970.'}
-                    {classifyResponse.category === 'Patent or Proprietary Medicine' && 
+                    {classifyResponse.category === 'Patent or Proprietary Medicine' &&
                       'Contains Ayurvedic ingredients in non-classical proportions or modern dosage form. Patentable only if non-obvious inventive step is proven beyond traditional knowledge.'}
-                    {classifyResponse.category === 'Ayurveda-Aahar / Nutraceutical' && 
+                    {classifyResponse.category === 'Ayurveda-Aahar / Nutraceutical' &&
                       'Regulated under FSSAI Ayurveda-Aahar Regulations, 2022. Governed by food safety compliance standards rather than pharmaceutical licensing.'}
-                    {classifyResponse.category === 'Cosmetic' && 
+                    {classifyResponse.category === 'Cosmetic' &&
                       'Topical application intended for beautification or hygiene. Governed by Cosmetic Rules under the Drugs and Cosmetics Act.'}
-                    {classifyResponse.category === 'Phytopharmaceutical' && 
+                    {classifyResponse.category === 'Phytopharmaceutical' &&
                       'Purified, standardized fraction of medicinal plant extract. Subject to botanical drug regulatory pathway.'}
                   </p>
                 </div>

@@ -915,6 +915,35 @@ body {
   margin-bottom: 8px;
 }
 
+.answer-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.answer-markdown th, .answer-markdown td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.answer-markdown th {
+  background-color: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  color: var(--emerald-400);
+}
+
+.answer-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+.answer-markdown tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
 .explanation-content {
   overflow: hidden;
   transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;

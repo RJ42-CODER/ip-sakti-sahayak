@@ -11,6 +11,7 @@ from app.rag_engine import (
     process_query,
     process_classify,
     translate_ui_texts,
+    clear_cache,
 )
 
 # Set up logging
@@ -39,7 +40,7 @@ import threading
 @app.on_event("startup")
 def prewarm_cache():
     """
-    Phase 10: Pre-warms embedding model and vector store into memory without blocking API workers.
+    Pre-warms embedding model and vector store into memory without blocking API workers.
     """
     def _background_prewarm():
         logger.info("Pre-warming vector DB & embedding model in background...")
@@ -65,8 +66,13 @@ def health_check():
     return {
         "status": "healthy",
         "vector_store": "ChromaDB Persistent",
-        "jurisdictions_supported": ["India", "International"]
+        "jurisdictions_supported": ["India", "US", "International"]
     }
+
+@app.post("/api/clear-cache")
+def clear_cache_api():
+    clear_cache()
+    return {"status": "cleared", "message": "Query cache cleared successfully."}
 
 @app.post("/api/query", response_model=QueryResponse)
 def query_api(req: QueryRequest):
@@ -76,8 +82,8 @@ def query_api(req: QueryRequest):
         raise HTTPException(status_code=400, detail="Question prompt cannot be empty.")
     if len(q_stripped) > 2000:
         raise HTTPException(status_code=400, detail="Question prompt exceeds maximum character limit of 2000.")
-    if req.jurisdiction not in ["India", "International"]:
-        raise HTTPException(status_code=400, detail="Invalid jurisdiction. Supported values: 'India', 'International'.")
+    if req.jurisdiction not in ["India", "US", "International"]:
+        raise HTTPException(status_code=400, detail="Invalid jurisdiction. Supported values: 'India', 'US', 'International'.")
 
     try:
         return process_query(req)
