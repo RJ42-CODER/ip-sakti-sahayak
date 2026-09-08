@@ -1,0 +1,87 @@
+{
+  "https://ipindia.gov.in/acts/patent-act-1970": {
+    "hash": "12cb4778b0787dfe591e37974a86c80d18bbaf589c00014eac0c028d3dee8575",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://indiacode.gov.in/act/000de0a3-39ce-4e18-85f0-0c51b4bdab5d/sections": {
+    "hash": "b2c5de6237410d2c763d0b0ef079e22fc511b96b408a2629b21b9f00ac684b9f",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://indiacode.gov.in/act/8725a8a7-45a4-42e3-9046-e2a6383cd049/sections": {
+    "hash": "b2c5de6237410d2c763d0b0ef079e22fc511b96b408a2629b21b9f00ac684b9f",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://indiacode.gov.in/act/1905d861-7dcd-46d6-a03b-4fe6009dea5b/sections": {
+    "hash": "b2c5de6237410d2c763d0b0ef079e22fc511b96b408a2629b21b9f00ac684b9f",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://ipindia.gov.in/": {
+    "hash": "bd3e5f54f757d63c940ae025185e3b4f5f59af94833be297df19b9e32450c595",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://indiacode.gov.in/act/62219d21-0553-405b-9ccb-a11b4d9c41c2/sections": {
+    "hash": "b2c5de6237410d2c763d0b0ef079e22fc511b96b408a2629b21b9f00ac684b9f",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://indiacode.gov.in/act/cd8f2852-7085-432b-a264-7b73a6f01fff/sections": {
+    "hash": "b2c5de6237410d2c763d0b0ef079e22fc511b96b408a2629b21b9f00ac684b9f",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://indiacode.gov.in/act/6b893162-631a-453b-a7b9-89685716889b/sections": {
+    "hash": "b2c5de6237410d2c763d0b0ef079e22fc511b96b408a2629b21b9f00ac684b9f",
+    "last_checked": "2026-09-07T08:05:48.100784+00:00",
+    "pending_changes": 0
+  },
+  "https://indiacode.gov.in/act/66408705-b196-477f-9229-dc633f393a23/sections": {
+    "hash": "b2c5de6237410d2c763d0b0ef079e22fc511b96b408a2629b21b9f00ac684b9f",
+    "last_checked": "2026-09-07T08:05:48.100784+00:00",
+    "pending_changes": 0
+  },
+  "https://www.fssai.gov.in/": {
+    "hash": "a1182055ba3d5bf8b9713641b20fa43369b609f63723bee273c10d2c055ac0f6",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://www.wto.org/english/docs_e/legal_e/27-trips_04c_e.htm": {
+    "hash": "232d912f41c972fe2d5c4b0eb23380f84803ca2a3ed9399956aadbeb96ff05bd",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://www.cbd.int/convention/articles/?a=cbd-15": {
+    "hash": "595ae45f55c95ed9fabff3d03ed8b09c0981fe05378d953081e0969f820b4029",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://www.cbd.int/abs/text/articles/?sec=abs-05": {
+    "hash": "cefb7041b93fb4feee32dd65bda0db8acfba55fcff5cae00544e2d67211401aa",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://www.wipo.int/wipolex/en/text/586737": {
+    "hash": "f5d45f67010d5f281c9255294460597f7831a860c763b1e3bddde1fd93190d03",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://www.wipo.int/pct/en/texts/articles/a3.html": {
+    "hash": "73aac08967d042715dff4e46d169663dba122f2958b3b3ef6fdf03fe58e52d97",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://www.wipo.int/hague/en/legal_texts/": {
+    "hash": "76344429444a00f592d9ae4869fe0b9bbd988802fa75d91d29bdc6e4358a3324",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  },
+  "https://www.wipo.int/budapest/en/": {
+    "hash": "83559fb410ddcd4e78cd078f2380dbef87ea6426dab81385216cf86b8959f8ac",
+    "last_checked": "2026-09-07T08:06:06.166099+00:00",
+    "pending_changes": 0
+  }
+}

@@ -156,8 +156,14 @@
    - Mounts persistent ChromaDB volume `./backend/chroma_db:/app/backend/chroma_db`.
    - Maps host ports `8000:8000` (Backend API) and `3000:80` (Frontend Nginx SPA).
    - Validated configuration via `docker-compose config`.
-4. **README Update** ([README.md](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/README.md)):
-   - Added **Run with Docker** section with `docker-compose up --build`.
-   - Preserved existing local (non-Docker) setup commands.
+---
+
+## 2026-09-07: Corpus Freshness Maintenance Script
+
+### Work Completed
+1. Created standalone maintenance script [`backend/scripts/check_freshness.py`](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/backend/scripts/check_freshness.py) to track statutory source website drift.
+2. Extracts visible prose text via BeautifulSoup, collapses whitespace, computes SHA256 hashes, and manages a 2-run debounced state file in [`data/corpus_freshness_state.json`](file:///C:/Users/Soham/.gemini/antigravity/scratch/ip-sakti-sahayak/data/corpus_freshness_state.json).
+3. Verified via 3 consecutive test executions.
+
 
 
