@@ -7,7 +7,12 @@
       "jurisdiction": "India",
       "law_type": "Trademark",
       "source_url": "https://indiacode.gov.in/act/62219d21-0553-405b-9ccb-a11b4d9c41c2/sections",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "trademark_act_9",
+      "document": "Trade Marks Act, 1999",
+      "official_domain": "indiacode.gov.in",
+      "issuing_body": "Trade Marks Registry",
+      "source_type": "statute"
     }
   },
   {
@@ -18,7 +23,12 @@
       "jurisdiction": "India",
       "law_type": "Industrial Design",
       "source_url": "https://indiacode.gov.in/act/cd8f2852-7085-432b-a264-7b73a6f01fff/sections",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "designs_act_4",
+      "document": "Designs Act, 2000",
+      "official_domain": "indiacode.gov.in",
+      "issuing_body": "Patent & Design Office",
+      "source_type": "statute"
     }
   },
   {
@@ -29,7 +39,12 @@
       "jurisdiction": "India",
       "law_type": "Copyright",
       "source_url": "https://indiacode.gov.in/act/6b893162-631a-453b-a7b9-89685716889b/sections",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "copyright_act_13",
+      "document": "Copyright Act, 1957",
+      "official_domain": "indiacode.gov.in",
+      "issuing_body": "Copyright Office",
+      "source_type": "statute"
     }
   },
   {
@@ -40,7 +55,12 @@
       "jurisdiction": "India",
       "law_type": "Plant Varieties & Farmers Rights",
       "source_url": "https://indiacode.gov.in/act/66408705-b196-477f-9229-dc633f393a23/sections",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "ppvfr_act_39",
+      "document": "Protection of Plant Varieties and Farmers' Rights Act, 2001",
+      "official_domain": "indiacode.gov.in",
+      "issuing_body": "PPV&FR Authority",
+      "source_type": "statute"
     }
   },
   {
@@ -51,7 +71,12 @@
       "jurisdiction": "India",
       "law_type": "Food Safety & Regulatory",
       "source_url": "https://www.fssai.gov.in/",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "fssai_ayurveda_aahara_2",
+      "document": "Food Safety and Standards (Ayurveda Aahara) Regulations, 2022",
+      "official_domain": "fssai.gov.in",
+      "issuing_body": "Food Safety and Standards Authority of India",
+      "source_type": "regulation"
     }
   },
   {
@@ -62,7 +87,12 @@
       "jurisdiction": "International",
       "law_type": "Patent / International IP",
       "source_url": "https://www.wto.org/english/docs_e/legal_e/27-trips_04c_e.htm",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "trips_art_27",
+      "document": "TRIPS Agreement",
+      "official_domain": "wto.org",
+      "issuing_body": "World Trade Organization",
+      "source_type": "treaty"
     }
   },
   {
@@ -73,7 +103,12 @@
       "jurisdiction": "International",
       "law_type": "ABS (Access and Benefit Sharing)",
       "source_url": "https://www.cbd.int/convention/articles/?a=cbd-15",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "cbd_art_15",
+      "document": "Convention on Biological Diversity",
+      "official_domain": "cbd.int",
+      "issuing_body": "Secretariat of the Convention on Biological Diversity",
+      "source_type": "treaty"
     }
   },
   {
@@ -84,7 +119,12 @@
       "jurisdiction": "International",
       "law_type": "ABS (Access and Benefit Sharing)",
       "source_url": "https://www.cbd.int/abs/text/articles/?sec=abs-05",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "nagoya_art_5",
+      "document": "Nagoya Protocol on Access and Benefit Sharing",
+      "official_domain": "cbd.int",
+      "issuing_body": "Secretariat of the Convention on Biological Diversity",
+      "source_type": "treaty"
     }
   },
   {
@@ -95,7 +135,12 @@
       "jurisdiction": "International",
       "law_type": "Patent / Traditional Knowledge",
       "source_url": "https://www.wipo.int/wipolex/en/text/586737",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "wipo_gratk_art_3",
+      "document": "WIPO Treaty on IP, Genetic Resources and Associated Traditional Knowledge (2024)",
+      "official_domain": "wipo.int",
+      "issuing_body": "World Intellectual Property Organization",
+      "source_type": "treaty"
     }
   },
   {
@@ -106,7 +151,12 @@
       "jurisdiction": "International",
       "law_type": "Patent / International Filing",
       "source_url": "https://www.wipo.int/pct/en/texts/articles/a3.html",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "pct_art_3_15",
+      "document": "Patent Cooperation Treaty",
+      "official_domain": "wipo.int",
+      "issuing_body": "World Intellectual Property Organization",
+      "source_type": "treaty"
     }
   },
   {
@@ -117,7 +167,12 @@
       "jurisdiction": "International",
       "law_type": "Trademark / International Registration",
       "source_url": "https://www.wipo.int/madrid/en/legal_texts/tr_madrid.html",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "madrid_system_wipo",
+      "document": "Madrid Agreement Concerning the International Registration of Marks",
+      "official_domain": "wipo.int",
+      "issuing_body": "World Intellectual Property Organization",
+      "source_type": "treaty"
     }
   },
   {
@@ -128,7 +183,12 @@
       "jurisdiction": "International",
       "law_type": "Industrial Design / International Registration",
       "source_url": "https://www.wipo.int/hague/en/legal_texts/",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "hague_system_wipo",
+      "document": "Hague Agreement Concerning the International Registration of Industrial Designs",
+      "official_domain": "wipo.int",
+      "issuing_body": "World Intellectual Property Organization",
+      "source_type": "treaty"
     }
   },
   {
@@ -139,7 +199,12 @@
       "jurisdiction": "International",
       "law_type": "Patent / Biological Deposits",
       "source_url": "https://www.wipo.int/budapest/en/",
-      "last_verified": "August 30, 2026"
+      "last_verified": "August 30, 2026",
+      "source_id": "budapest_treaty_wipo",
+      "document": "Budapest Treaty on Microorganisms Deposit",
+      "official_domain": "wipo.int",
+      "issuing_body": "World Intellectual Property Organization",
+      "source_type": "treaty"
     }
   }
 ]

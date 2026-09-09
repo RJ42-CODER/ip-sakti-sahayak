@@ -1,13 +1,19 @@
 [
   {
-    "text": "Section 3 of the Patents Act, 1970 details what are not inventions within the meaning of the Act. Specifically, Section 3(p) explicitly states that 'an invention which in effect, is traditional knowledge or which is an aggregation or duplication of known properties of traditionally known component or components' is not an invention. This clause serves as a direct bar against the patenting of classical Ayurvedic formulations and traditional herbal remedies in India, ensuring that knowledge already existing within indigenous or traditional systems of medicine cannot be exclusively claimed by an individual or corporation.",
+    "text": "Section 3 of the Patents Act, 1970 details what are not inventions within the meaning of the Act. Specifically, Section 3(p) explicitly states that 'an invention which in effect, is traditional knowledge or which is an aggregation or duplication of known properties of traditionally known component or components' is not an invention. Under Indian patent law, Section 3(p) is evaluated against the specific claimed subject matter of a patent application, serving as a statutory patentability exclusion if the claimed invention is, in effect, traditional knowledge or an aggregation or duplication of known properties of traditionally known components.",
     "metadata": {
       "source_name": "Patents Act, 1970",
+      "act": "Patents Act, 1970",
       "section": "Section 3(p)",
       "jurisdiction": "India",
       "law_type": "Patent",
+      "source_type": "statute",
+      "official_domain": "ipindia.gov.in",
       "source_url": "https://ipindia.gov.in/acts/patent-act-1970",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "patents_act_3p",
+      "document": "The Patents Act, 1970",
+      "issuing_body": "Indian Patent Office"
     }
   },
   {
@@ -18,7 +24,12 @@
       "jurisdiction": "India",
       "law_type": "Patent",
       "source_url": "https://ipindia.gov.in/acts/patent-act-1970",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "patents_act_3d",
+      "document": "The Patents Act, 1970",
+      "official_domain": "ipindia.gov.in",
+      "issuing_body": "Indian Patent Office",
+      "source_type": "statute"
     }
   },
   {
@@ -29,7 +40,12 @@
       "jurisdiction": "India",
       "law_type": "Patent",
       "source_url": "https://ipindia.gov.in/acts/patent-act-1970",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "patents_act_2_1_j",
+      "document": "The Patents Act, 1970",
+      "official_domain": "ipindia.gov.in",
+      "issuing_body": "Indian Patent Office",
+      "source_type": "statute"
     }
   },
   {
@@ -40,7 +56,12 @@
       "jurisdiction": "India",
       "law_type": "ABS (Access and Benefit Sharing)",
       "source_url": "https://indiacode.gov.in/act/000de0a3-39ce-4e18-85f0-0c51b4bdab5d/sections",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "bda_section_3",
+      "document": "Biological Diversity Act, 2002",
+      "official_domain": "indiacode.gov.in",
+      "issuing_body": "National Biodiversity Authority",
+      "source_type": "statute"
     }
   },
   {
@@ -51,84 +72,131 @@
       "jurisdiction": "India",
       "law_type": "ABS (Access and Benefit Sharing)",
       "source_url": "https://indiacode.gov.in/act/000de0a3-39ce-4e18-85f0-0c51b4bdab5d/sections",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "bda_section_6",
+      "document": "Biological Diversity Act, 2002",
+      "official_domain": "indiacode.gov.in",
+      "issuing_body": "National Biodiversity Authority",
+      "source_type": "statute"
     }
   },
   {
-    "text": "The Drugs and Cosmetics Act, 1940, under Section 3(a), defines an 'Ayurvedic, Siddha or Unani drug'. It includes all medicines intended for internal or external use for or in the diagnosis, treatment, mitigation or prevention of disease or disorder in human beings or animals, and manufactured exclusively in accordance with the formulae described in the authoritative books of Ayurvedic, Siddha and Unani Tibb systems of medicine, specified in the First Schedule of the Act. Products falling strictly under this definition are classified as classical medicines, which cannot be patented due to their pre-existing documentation in recognized traditional texts.",
+    "text": "The Drugs and Cosmetics Act, 1940, under Section 3(a), defines an 'Ayurvedic, Siddha or Unani drug'. It includes all medicines intended for internal or external use for or in the diagnosis, treatment, mitigation or prevention of disease or disorder in human beings or animals, and manufactured exclusively in accordance with the formulae described in the authoritative books of Ayurvedic, Siddha and Unani Tibb systems of medicine, specified in the First Schedule of the Act. Products manufactured strictly in accordance with these authoritative formulae are classified as classical Ayurvedic medicines for regulatory, manufacturing standards, and drug licensing compliance under the Drugs and Cosmetics Act.",
     "metadata": {
       "source_name": "Drugs and Cosmetics Act, 1940",
+      "act": "Drugs and Cosmetics Act, 1940",
       "section": "Section 3(a)",
       "jurisdiction": "India",
       "law_type": "Drug Classification",
+      "source_type": "statute",
+      "official_domain": "indiacode.gov.in",
       "source_url": "https://indiacode.gov.in/act/8725a8a7-45a4-42e3-9046-e2a6383cd049/sections",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "drugs_and_cosmetics_3a",
+      "document": "Drugs and Cosmetics Act, 1940",
+      "issuing_body": "Central Drugs Standard Control Organisation"
     }
   },
   {
-    "text": "Under Section 3(h) of the Drugs and Cosmetics Act, 1940 (as amended), 'Patent or Proprietary medicine' in relation to Ayurvedic, Siddha or Unani Tibb systems of medicine means all formulations containing only such ingredients mentioned in the formulae described in the authoritative books of Ayurveda, Siddha or Unani Tibb systems of medicine specified in the First Schedule, but does not include a medicine which is administered by parenteral route and also a formulation included in the authoritative books. These proprietary medicines are modified traditional formulas and require distinct licensing and evidence of safety/efficacy, though they may still face patentability bars under Section 3(p) of the Patents Act if they lack a novel inventive step.",
+    "text": "Under Section 3(h) of the Drugs and Cosmetics Act, 1940 (as amended), 'Patent or Proprietary medicine' in relation to Ayurvedic, Siddha or Unani Tibb systems of medicine means all formulations containing only such ingredients mentioned in the formulae described in the authoritative books of Ayurveda, Siddha or Unani Tibb systems of medicine specified in the First Schedule, but does not include a medicine which is administered by parenteral route and also a formulation included in the authoritative books. These proprietary medicines are modified traditional formulas requiring distinct drug manufacturing licensing and evidence of safety/efficacy under the Drugs and Cosmetics Act.",
     "metadata": {
       "source_name": "Drugs and Cosmetics Act, 1940",
+      "act": "Drugs and Cosmetics Act, 1940",
       "section": "Section 3(h)",
       "jurisdiction": "India",
       "law_type": "Drug Classification",
+      "source_type": "statute",
+      "official_domain": "indiacode.gov.in",
       "source_url": "https://indiacode.gov.in/act/8725a8a7-45a4-42e3-9046-e2a6383cd049/sections",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "drugs_and_cosmetics_3h",
+      "document": "Drugs and Cosmetics Act, 1940",
+      "issuing_body": "Central Drugs Standard Control Organisation"
     }
   },
   {
     "text": "Section 9 of the Geographical Indications of Goods (Registration and Protection) Act, 1999 outlines the absolute grounds for refusal of registration. A geographical indication cannot be registered if its use would be likely to deceive or cause confusion, if its use would be contrary to any law, if it comprises or contains scandalous or obscene matter, if it comprises or contains any matter likely to hurt the religious susceptibilities of any class or section of the citizens of India, or if it is determined to be a generic name or indication and therefore not protectable as a distinct geographical indication. This protects standard Ayurvedic names from being monopolized by specific regional registries if the knowledge is fundamentally pan-Indian.",
     "metadata": {
       "source_name": "Geographical Indications of Goods Act, 1999",
+      "act": "Geographical Indications of Goods Act, 1999",
       "section": "Section 9",
       "jurisdiction": "India",
       "law_type": "GI",
+      "source_type": "statute",
+      "official_domain": "indiacode.gov.in",
       "source_url": "https://indiacode.gov.in/act/1905d861-7dcd-46d6-a03b-4fe6009dea5b/sections",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "gi_act_9",
+      "document": "Geographical Indications of Goods Act, 1999",
+      "issuing_body": "Geographical Indications Registry"
     }
   },
   {
     "text": "Section 11 of the Geographical Indications of Goods (Registration and Protection) Act, 1999 details who is eligible to apply for a GI registration. Any association of persons or producers or any organization or authority established by or under any law for the time being in force representing the interest of the producers of the concerned goods, who are desirous of registering a geographical indication in relation to such goods, shall apply in writing to the Registrar. For Ayurvedic products bound to a specific region (like Navara rice or specific regional medicinal oils), individual businesses cannot claim the GI; the application must be filed communally or by an association representing all local producers.",
     "metadata": {
       "source_name": "Geographical Indications of Goods Act, 1999",
+      "act": "Geographical Indications of Goods Act, 1999",
       "section": "Section 11",
       "jurisdiction": "India",
       "law_type": "GI",
+      "source_type": "statute",
+      "official_domain": "indiacode.gov.in",
       "source_url": "https://indiacode.gov.in/act/1905d861-7dcd-46d6-a03b-4fe6009dea5b/sections",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "gi_act_11",
+      "document": "Geographical Indications of Goods Act, 1999",
+      "issuing_body": "Geographical Indications Registry"
     }
   },
   {
     "text": "The Traditional Knowledge Digital Library (TKDL) is a pioneering Indian initiative to protect traditional Indian medicinal knowledge, particularly Ayurveda, Unani, Siddha, and Yoga, from misappropriation and wrongful patenting worldwide. Developed collaboratively by the Council of Scientific and Industrial Research (CSIR) and the Ministry of AYUSH, the TKDL scientifically converts and translates ancient traditional knowledge from Sanskrit, Hindi, Arabic, Persian, and Urdu into five international languages: English, Japanese, French, German, and Spanish. By formatting this data into a digitized prior-art database accessible to international patent examiners, TKDL breaks the language and format barriers that previously allowed bio-piracy to occur. It is the primary defensive tool used to trigger Section 3(p) objections in India and prior-art rejections abroad.",
     "metadata": {
       "source_name": "Traditional Knowledge Digital Library",
+      "act": "TKDL Documentation",
       "section": "Public Documentation - About TKDL",
       "jurisdiction": "India",
       "law_type": "Prior Art / Patent Defense",
+      "source_type": "prior_art",
+      "official_domain": "tkdl.res.in",
       "source_url": "https://www.tkdl.res.in/",
-      "last_verified": "August 26, 2026"
+      "last_verified": "August 26, 2026",
+      "source_id": "tkdl_defense",
+      "document": "TKDL Prior Art Database Documentation",
+      "issuing_body": "CSIR & Ministry of Ayush"
     }
   },
   {
     "text": "The Turmeric Patent Revocation Case (US Patent No. 5,401,504) is a landmark example of defending traditional Ayurvedic knowledge. In 1995, the US Patent and Trademark Office (USPTO) granted a patent to the University of Mississippi Medical Center for the use of turmeric in wound healing. In 1996, the Council of Scientific and Industrial Research (CSIR) of India formally challenged this patent, arguing that turmeric has been used in India for thousands of years for this exact purpose, thereby lacking the required 'novelty' for a patent. CSIR provided extensive prior art, including ancient Sanskrit texts and a 1953 paper published in the Journal of the Indian Medical Association. Acknowledging this prior art, the USPTO revoked the patent in 1997, marking the first time a US patent based on traditional knowledge of a developing country was successfully challenged and cancelled.",
     "metadata": {
       "source_name": "USPTO Patent Records / CSIR Archives",
+      "act": "US Patent 5,401,504 (Revoked)",
       "section": "Turmeric Revocation Case",
       "jurisdiction": "International",
       "law_type": "Patent",
-      "source_url": "https://ipindia.gov.in/",
-      "last_verified": "August 26, 2026"
+      "source_type": "case_precedent",
+      "official_domain": "uspto.gov",
+      "source_url": "https://www.uspto.gov/patents/search",
+      "last_verified": "August 26, 2026",
+      "source_id": "turmeric_case_uspto",
+      "document": "US Patent 5,401,504 Revocation Proceeding",
+      "issuing_body": "United States Patent and Trademark Office"
     }
   },
   {
     "text": "The Neem Patent Revocation Case (European Patent No. 0436257) demonstrated the international vulnerability of Ayurvedic traditional knowledge. The patent application was filed by the US Department of Agriculture and the multinational corporation W.R. Grace on 12 December 1990. On 14 September 1994, the European Patent Office (EPO) granted the patent, covering a method of controlling fungi on plants using hydrophobic extracted neem oil. In 1995, Indian environmentalist Vandana Shiva, alongside Magda Aelvoet of the Green Group in the European Parliament and other opponents, filed a legal opposition. They provided evidence, including corroborated testimony from an Indian researcher, that Indian farmers and Ayurvedic practitioners had used neem for its fungicidal and medicinal properties for generations. The EPO revoked the patent in May 2000 on the grounds that the invention lacked novelty and an inventive step in light of India's traditional prior art. An appeal by the patent holders was dismissed by the EPO Technical Board of Appeal on 8 March 2005, bringing the ten-year dispute to a close.",
     "metadata": {
       "source_name": "EPO Patent Records / Traditional Knowledge Defense Cases",
+      "act": "EP 0436257 (Revoked)",
       "section": "Neem Revocation Case",
       "jurisdiction": "International",
       "law_type": "Patent",
-      "source_url": "https://ipindia.gov.in/",
-      "last_verified": "August 26, 2026"
+      "source_type": "case_precedent",
+      "official_domain": "epo.org",
+      "source_url": "https://www.epo.org/en/searching-for-patents",
+      "last_verified": "August 26, 2026",
+      "source_id": "neem_case_epo",
+      "document": "EP Patent 0436257 Opposition & Revocation Appeal",
+      "issuing_body": "European Patent Office"
     }
   }
 ]

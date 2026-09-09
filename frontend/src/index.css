@@ -853,33 +853,95 @@ body {
 }
 
 /* Confidence Badge Styling (Genuine Backend Confidence) */
-.confidence-badge {
+.confidence-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  font-size: 0.775rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
 }
 
-.confidence-badge.high {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid var(--emerald-500);
+.confidence-indicator.high {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%);
+}
+
+.confidence-indicator.high .confidence-dot {
+  background-color: var(--emerald-400);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
+}
+
+.confidence-indicator.high .conf-level {
   color: var(--emerald-400);
 }
 
-.confidence-badge.medium {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid var(--amber-500);
+.confidence-indicator.medium {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%);
+}
+
+.confidence-indicator.medium .confidence-dot {
+  background-color: var(--amber-400);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+}
+
+.confidence-indicator.medium .conf-level {
   color: var(--amber-400);
 }
 
-.confidence-badge.low {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid #ef4444;
+.confidence-indicator.low {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%);
+}
+
+.confidence-indicator.low .confidence-dot {
+  background-color: #f87171;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.6);
+}
+
+.confidence-indicator.low .conf-level {
   color: #f87171;
+}
+
+.confidence-indicator.abstain {
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.confidence-indicator.abstain .confidence-dot {
+  background-color: var(--slate-400);
+}
+
+.confidence-indicator.abstain .conf-level {
+  color: var(--slate-300);
+}
+
+.confidence-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.confidence-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.conf-level {
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.conf-desc {
+  font-size: 0.725rem;
+  color: var(--slate-400);
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 /* Markdown Answer Body & Progressive Disclosure */
@@ -1262,6 +1324,45 @@ body {
   color: var(--emerald-400);
 }
 
+/* ACTION BAR */
+.action-btn-styled {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border-subtle);
+  color: var(--slate-300);
+  font-size: 0.825rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.action-btn-styled:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.action-btn-styled.follow-up {
+  color: var(--emerald-400);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.action-btn-styled.follow-up:hover {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.action-btn-styled.start-new {
+  color: var(--amber-400);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.action-btn-styled.start-new:hover {
+  background: rgba(245, 158, 11, 0.15);
+}
+
 /* RESPONSIVE MEDIA QUERIES */
 @media (max-width: 768px) {
   .nav-links {
@@ -1287,5 +1388,24 @@ body {
   .control-group {
     flex-direction: column;
     align-items: stretch;
+  }
+  .summary-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Hero Phrase Animation */
+@keyframes phrase-fade {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-phrase-fade {
+  animation: phrase-fade 0.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-phrase-fade {
+    animation: none;
   }
 }

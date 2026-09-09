@@ -1,0 +1,10 @@
+.venv
+venv
+.venv_wsl
+env
+__pycache__
+*.pyc
+*.pyo
+.git
+.pytest_cache
+chroma_db

@@ -79,6 +79,16 @@ const DEFAULT_UI_TEXTS = {
   classify_submit_btn: "Classify Product Category"
 };
 
+const INTENT_MAP = {
+  patentability: 'Patent',
+  patent_procedure: 'Patent Procedure',
+  trademark: 'Trademark',
+  biodiversity_abs: 'Biodiversity / ABS',
+  historical_case: 'Case Precedent',
+  product_classification: 'Product Classification',
+  general_ip: 'General IP'
+};
+
 const getVerifiedUrl = (url, sourceName) => {
   if (url && typeof url === 'string' && url.startsWith('http')) return url;
   const s = (sourceName || '').toLowerCase();
@@ -91,10 +101,94 @@ const getVerifiedUrl = (url, sourceName) => {
   return 'https://indiacode.gov.in/';
 };
 
+const renderStructuredText = (value) => {
+  if (!value) return null;
+  
+  if (typeof value !== 'string') {
+    if (Array.isArray(value)) {
+      return (
+        <ul className="space-y-2 list-disc list-outside ml-4">
+          {value.map((v, i) => <li key={i} className="pl-1">{renderStructuredText(v)}</li>)}
+        </ul>
+      );
+    }
+    if (typeof value === 'object') {
+      return (
+        <div className="space-y-2 mt-2">
+          {Object.entries(value).map(([k, v]) => (
+            <div key={k}>
+              <strong className="block text-slate-200 capitalize">{k.replace(/_/g, ' ')}:</strong>
+              <div className="pl-2 border-l-2 border-slate-700 mt-1">
+                {renderStructuredText(v)}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return String(value);
+  }
+
+  // Pre-process string to remove accidental accordion/UI chars, raw arrows, and SVG/icon artifacts
+  let cleanStr = value
+    .replace(/[▼▶⌄▲◀]/g, '')
+    .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+    .replace(/<svg[^>]*>/gi, '')
+    .replace(/<\/svg>/gi, '')
+    .replace(/\[object Object\]/g, '');
+
+  // Strip leading list bullet if string is a single line, to avoid double bullets in <li>
+  if (!cleanStr.includes('\n')) {
+    cleanStr = cleanStr.replace(/^[-•*]\s+/, '');
+  }
+
+  return (
+    <ReactMarkdown 
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({node, ...props}) => <p className="mb-4 leading-relaxed last:mb-0" {...props} />,
+        ul: ({node, ...props}) => <ul className="list-disc list-outside ml-5 space-y-2 mb-4 last:mb-0" {...props} />,
+        ol: ({node, ...props}) => <ol className="list-decimal list-outside ml-5 space-y-2 mb-4 last:mb-0" {...props} />,
+        li: ({node, ...props}) => <li className="pl-1" {...props} />,
+        strong: ({node, ...props}) => <strong className="font-bold text-slate-100" {...props} />,
+        a: ({node, ...props}) => <a className="text-emerald-400 hover:underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
+        table: ({node, ...props}) => <div className="overflow-x-auto mb-4 rounded-lg border border-slate-700/50"><table className="w-full border-collapse text-sm text-left text-slate-300" {...props} /></div>,
+        thead: ({node, ...props}) => <thead className="text-xs uppercase bg-slate-800/80 text-emerald-400 font-bold tracking-wider" {...props} />,
+        th: ({node, ...props}) => <th className="px-4 py-3 border-b border-slate-700/50" {...props} />,
+        td: ({node, ...props}) => <td className="px-4 py-3 border-b border-slate-700/30 bg-slate-900/20" {...props} />,
+        blockquote: ({node, ...props}) => <blockquote className="p-4 my-4 border-l-4 border-emerald-500 bg-emerald-900/10 rounded-r-lg shadow-sm" {...props} />
+      }}
+    >
+      {cleanStr}
+    </ReactMarkdown>
+  );
+};
+
 export default function App() {
   // Navigation & Active View State
   const [activeTab, setActiveTab] = useState('query');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Hero Animation State
+  const [heroPhraseIndex, setHeroPhraseIndex] = useState(0);
+  const heroPhrases = [
+    "AYURVEDIC FORMULATIONS",
+    "PATENTABILITY RULES",
+    "TRADITIONAL KNOWLEDGE PROTECTION",
+    "GEOGRAPHICAL INDICATIONS",
+    "REGULATORY COMPLIANCE"
+  ];
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+
+    const intervalId = setInterval(() => {
+      setHeroPhraseIndex((prevIndex) => (prevIndex + 1) % heroPhrases.length);
+    }, 1500);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Backend Health Status
   const [backendStatus, setBackendStatus] = useState({ online: false, checking: true });
@@ -365,30 +459,83 @@ export default function App() {
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Helper for Genuine Backend Confidence Badge (High, Medium, Low)
+  // Helper for Genuine Backend Confidence Badge
   const getConfidenceBadge = (confidence) => {
     switch (confidence) {
       case 'High':
         return (
-          <span className="confidence-badge high" title="High certainty supported directly by verified statutory sources">
-            <ShieldCheck className="w-4 h-4" /> High Confidence
-          </span>
+          <div className="confidence-indicator high" title="Evidence confidence based on retrieval strength, not probability of legal success">
+            <div className="confidence-dot"></div>
+            <div className="confidence-text">
+              <span className="conf-level">High</span>
+              <span className="conf-desc">Strong authoritative evidence</span>
+            </div>
+          </div>
         );
       case 'Medium':
         return (
-          <span className="confidence-badge medium" title="Medium certainty based on statutory definitions and principles">
-            <AlertTriangle className="w-4 h-4" /> Medium Confidence
-          </span>
+          <div className="confidence-indicator medium" title="Evidence confidence based on retrieval strength, not probability of legal success">
+            <div className="confidence-dot"></div>
+            <div className="confidence-text">
+              <span className="conf-level">Medium</span>
+              <span className="conf-desc">Partial/qualified evidence</span>
+            </div>
+          </div>
         );
       case 'Low':
         return (
-          <span className="confidence-badge low" title="Low certainty or complex query - human legal escalation recommended">
-            <AlertTriangle className="w-4 h-4" /> Low Confidence
-          </span>
+          <div className="confidence-indicator low" title="Evidence confidence based on retrieval strength, not probability of legal success">
+            <div className="confidence-dot"></div>
+            <div className="confidence-text">
+              <span className="conf-level">Low</span>
+              <span className="conf-desc">Limited supporting evidence</span>
+            </div>
+          </div>
         );
       default:
-        return null;
+        return (
+          <div className="confidence-indicator abstain">
+            <div className="confidence-dot"></div>
+            <div className="confidence-text">
+              <span className="conf-level">Insufficient Evidence</span>
+            </div>
+          </div>
+        );
     }
+  };
+
+  // Action Bar Handlers
+  const handleStartNewAssessment = () => {
+    setQueryResponse(null);
+    setQuestion('');
+    setQueryError('');
+    setShowFullExplanation(false);
+    const newId = 'sess_' + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('ipsakti_session_id', newId);
+    setSessionId(newId);
+    const el = document.getElementById('ask-workspace');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleCopyAnswer = () => {
+    if (!queryResponse) return;
+    let text = "Legal Assessment\n\n";
+    if (queryResponse.structured_content) {
+      if (queryResponse.structured_content.assessment) text += queryResponse.structured_content.assessment + "\n\n";
+      if (queryResponse.structured_content.outcome) text += "Core Verdict\n" + queryResponse.structured_content.outcome + "\n\n";
+      if (queryResponse.structured_content.legal_basis?.length) text += "Legal Basis\n" + queryResponse.structured_content.legal_basis.map(l=>"• "+l).join("\n") + "\n\n";
+      if (queryResponse.structured_content.alternatives?.length) text += "Alternative IP Protection Routes\n" + queryResponse.structured_content.alternatives.map(l=>"• "+l).join("\n") + "\n\n";
+      if (queryResponse.structured_content.next_action) text += "Recommended Next Steps\n" + queryResponse.structured_content.next_action + "\n\n";
+    } else {
+      text += queryResponse.answer;
+    }
+    navigator.clipboard.writeText(text.trim());
+    alert("Answer copied to clipboard!");
+  };
+
+  const handleViewSources = () => {
+    const el = document.getElementById('citations-grid');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // Helper for splitting answer into bold first-line takeaway and detailed explanation
@@ -482,9 +629,16 @@ export default function App() {
             <span className="hero-title-highlight">{t('hero_title_3', 'Ayurvedic IP Law.')}</span>
           </h1>
 
-          <p className="hero-description">
-            {t('hero_desc', 'Intelligent legal guidance for Ayurvedic formulations, patentability rules, Traditional Knowledge protection, Geographical Indications, and regulatory compliance.')}
-          </p>
+          <div className="hero-description" style={{ minHeight: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ color: 'var(--slate-300)' }}>Intelligent legal guidance for</span>
+            <span 
+              key={heroPhraseIndex}
+              className="animate-phrase-fade text-emerald-400 font-bold tracking-wide mt-2 text-center block"
+              style={{ maxWidth: '100%', lineHeight: '1.4' }}
+            >
+              {heroPhrases[heroPhraseIndex]}
+            </span>
+          </div>
 
           <div className="hero-actions">
             <button
@@ -507,13 +661,6 @@ export default function App() {
             >
               <Tag className="w-4 h-4" /> {t('hero_btn_classify', 'Classify Formulation')}
             </button>
-          </div>
-
-          <div className="hero-feature-tags">
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_patent', 'Patents Act, 1970 (Sec 3(p))')}</span>
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_bio', 'Biological Diversity Act (ABS)')}</span>
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_fssai', 'FSSAI Ayurveda-Aahar')}</span>
-            <span className="hero-tag"><Check className="w-4 h-4 text-emerald-400" /> {t('tag_trips', 'TRIPS & Nagoya Protocol')}</span>
           </div>
         </div>
       </section>
@@ -599,35 +746,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Scope Info Panel - Diagrammatic Grid */}
-              <div className="scope-grid-wrapper">
-                <div className="scope-grid">
-                  <div className="scope-card">
-                    <Scale className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{t('scope_patent', 'Patent Eligibility')}</span>
-                  </div>
-                  <div className="scope-card">
-                    <Award className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{t('scope_gi', 'GI & Trademark Protection')}</span>
-                  </div>
-                  <div className="scope-card">
-                    <Leaf className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{t('scope_bio', 'Biodiversity/ABS Compliance')}</span>
-                  </div>
-                  <div className="scope-card">
-                    <Tag className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{t('scope_prod', 'Product Classification')}</span>
-                  </div>
-                  <div className="scope-card">
-                    <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{t('scope_case', 'Case Precedents')}</span>
-                  </div>
-                </div>
-                <p className="scope-caption">
-                  {t('scope_caption', 'Questions outside Indian/international IP and AYUSH regulatory law will be declined.')}
-                </p>
-              </div>
-
               {/* Main Input Textarea */}
               <form onSubmit={handleQuerySubmit} className="mt-6">
                 <div className="input-wrapper">
@@ -711,14 +829,39 @@ export default function App() {
               </div>
             </div>
 
+            {/* Loading Indicator */}
+            {queryLoading && (
+              <div className="card-glass loading-container border-emerald-500/20 bg-slate-900/60">
+                <h3 className="flex items-center gap-2 text-emerald-400 font-bold mb-4">
+                  <Loader2 className="w-5 h-5 spinner" /> 
+                  Analyzing your request
+                </h3>
+                <div className="loading-stages space-y-3 pl-2">
+                  <div className="flex items-center gap-3 text-slate-300 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                    <span>Searching authoritative legal evidence</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-300 text-sm opacity-70">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400/50 animate-pulse" style={{animationDelay: '0.5s'}}></div>
+                    <span>Verifying sources and preparing assessment</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Error Message Card */}
             {queryError && (
-              <div className="card-glass border-red-500 bg-red-950/40 text-red-200">
-                <div className="flex items-center gap-2 font-bold text-red-400">
+              <div className="card-glass error-container border-red-500/40 bg-red-950/40">
+                <div className="flex items-center gap-2 font-bold text-red-400 text-lg">
                   <AlertTriangle className="w-5 h-5" />
-                  Query Execution Error
+                  AI Service Temporarily Unavailable
                 </div>
-                <p className="text-sm mt-1 text-red-300">{queryError}</p>
+                <p className="text-sm mt-2 text-red-200 leading-relaxed">
+                  IP-SAKTI could not generate a complete assessment right now. Please try again shortly.
+                </p>
+                <button className="btn-hero-secondary mt-5 py-2 px-5 text-sm" onClick={() => handleQuerySubmit()}>
+                  Try Again
+                </button>
               </div>
             )}
 
@@ -752,163 +895,187 @@ export default function App() {
                 </div>
 
                 {/* Structured Output UI Renderer */}
-                {queryResponse.structured_content ? (
-                  <div className="structured-content-container space-y-4 my-4">
-                    {/* Assessment & Outcome Header Card */}
-                    {queryResponse.structured_content.assessment &&
-                     (queryResponse.structured_content.intent !== 'historical_case' ||
-                      queryResponse.structured_content.assessment !== queryResponse.structured_content.what_happened) && (
-                      <div className="p-4 rounded-xl bg-slate-900/80 border border-emerald-500/30">
-                        <h3 className="text-xs uppercase tracking-wider font-bold text-emerald-400 mb-1">Legal Assessment</h3>
-                        <div className="text-slate-100 text-sm leading-relaxed">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.structured_content.assessment}</ReactMarkdown>
-                        </div>
-                      </div>
-                    )}
-
-                    {queryResponse.structured_content.outcome && (
-                      <div className="p-3.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 flex items-center gap-3 text-emerald-200">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                        <div className="text-xs font-semibold">
-                          <span className="text-emerald-400 block text-[10px] uppercase">Core Verdict / Legal Outcome</span>
-                          {queryResponse.structured_content.outcome}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Legal Basis / Statutory Provisions */}
-                    {queryResponse.structured_content.legal_basis && queryResponse.structured_content.legal_basis.length > 0 && (
-                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Legal Basis & Statutory Provisions</h4>
-                        <ul className="space-y-1.5 text-xs text-slate-300">
-                          {queryResponse.structured_content.legal_basis.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <span className="text-emerald-400 font-bold">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Required Documents / Procedure (Patent Procedure) */}
-                    {queryResponse.structured_content.required_documents && queryResponse.structured_content.required_documents.length > 0 && (
-                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">Required Application Documents</h4>
-                        <ul className="space-y-1 text-xs text-slate-300">
-                          {queryResponse.structured_content.required_documents.map((doc, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
-                              <span>{doc}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {queryResponse.structured_content.procedure && queryResponse.structured_content.procedure.length > 0 && (
-                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">Filing Procedure & Steps</h4>
-                        <ol className="space-y-1 text-xs text-slate-300 list-decimal list-inside">
-                          {queryResponse.structured_content.procedure.map((step, idx) => (
-                            <li key={idx} className="leading-relaxed">{step}</li>
-                          ))}
-                        </ol>
-                      </div>
-                    )}
-
-                    {/* Historical Case Precedents */}
-                    {queryResponse.structured_content.what_happened && queryResponse.structured_content.intent === 'historical_case' && (
-                      <div className="p-4 rounded-xl bg-slate-900/60 border border-amber-500/30">
-                        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">Case Facts & Background</h4>
-                        <div className="text-xs text-slate-300 leading-relaxed space-y-2">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.structured_content.what_happened}</ReactMarkdown>
-                        </div>
-                      </div>
-                    )}
-
-                    {queryResponse.structured_content.why_it_matters && queryResponse.structured_content.intent === 'historical_case' && (
-                      <div className="p-4 rounded-xl bg-slate-900/60 border border-purple-500/30">
-                        <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Precedent Significance & Legal Impact</h4>
-                        <div className="text-xs text-slate-300 leading-relaxed space-y-2">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.structured_content.why_it_matters}</ReactMarkdown>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Alternative IP Routes */}
-                    {queryResponse.structured_content.alternatives && queryResponse.structured_content.alternatives.length > 0 && (
-                      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <h4 className="text-xs font-bold text-teal-300 uppercase tracking-wider mb-2">Alternative IP Protection Routes</h4>
-                        <ul className="space-y-1 text-xs text-slate-300">
-                          {queryResponse.structured_content.alternatives.map((alt, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <ShieldCheck className="w-3.5 h-3.5 text-teal-400 shrink-0 mt-0.5" />
-                              <span>{alt}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Next Action */}
-                    {queryResponse.structured_content.next_action && (
-                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
-                        <ChevronRight className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <div className="text-xs text-slate-300">
-                          <span className="font-bold text-slate-200 block mb-0.5">Recommended Next Action</span>
-                          {queryResponse.structured_content.next_action}
-                        </div>
-                      </div>
-                    )}
+                {queryResponse.status === "CLARIFY" ? (
+                  <div className="clarify-container p-6 rounded-xl border border-amber-500/30 bg-amber-950/20 text-amber-100 mt-6">
+                    <div className="flex items-center gap-3 font-bold text-amber-400 text-lg mb-3">
+                      <HelpCircle className="w-6 h-6" />
+                      Clarification Needed
+                    </div>
+                    <div className="clarify-body space-y-2 text-[15px] leading-relaxed">
+                      <p>I need one more detail before I can provide a reliable assessment.</p>
+                      <p className="font-semibold text-amber-200">{queryResponse.answer}</p>
+                    </div>
+                    <button className="mt-5 px-5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/50 text-amber-400 font-semibold rounded-lg transition-colors" onClick={() => document.querySelector('.prompt-textarea')?.focus()}>
+                      Continue Assessment
+                    </button>
                   </div>
                 ) : (
-                  /* Fallback Markdown Main Answer */
-                  (() => {
-                    const { firstLine, rest } = splitAnswer(queryResponse.answer);
-                    return (
-                      <div className="answer-wrapper">
-                        <div className="answer-markdown takeaway-line">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{firstLine}</ReactMarkdown>
+                  <div className="structured-content-container space-y-6 my-6">
+                    {/* Follow-up Context Indicator */}
+                    {queryResponse.debug_info?.is_follow_up && (
+                      <div className="follow-up-context flex items-center gap-2 text-xs font-semibold text-emerald-400/80 mb-2 px-1">
+                        <ArrowRight className="w-3.5 h-3.5" />
+                        <span>↳ Continuing assessment for: <strong className="text-emerald-300">{queryResponse.debug_info.product || 'Query'}</strong> | Jurisdiction: {queryResponse.debug_info.resolved_jurisdiction || jurisdiction} | Domain: {INTENT_MAP[queryResponse.debug_info.intent] || 'Legal Domain'}</span>
+                      </div>
+                    )}
+
+                    {/* Unified Metadata Banner (Section 10) */}
+                    <div className="summary-strip-container">
+                      <div className="summary-strip grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <div className="metadata-item flex flex-col gap-1">
+                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Jurisdiction:</span>
+                          <span className="text-sm font-semibold text-slate-100">{queryResponse.debug_info?.resolved_jurisdiction || queryResponse.structured_content?.jurisdiction || jurisdiction}</span>
                         </div>
-                        {rest && (
-                          <>
-                            <div className={`explanation-content ${showFullExplanation ? 'expanded' : 'collapsed'}`}>
-                              <div className="answer-markdown mt-3">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{rest}</ReactMarkdown>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn-toggle-explanation"
-                              onClick={() => setShowFullExplanation(!showFullExplanation)}
-                            >
-                              {showFullExplanation ? (
-                                <>
-                                  <ChevronUp className="w-4 h-4" /> Hide full explanation
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="w-4 h-4" /> Show full explanation
-                                </>
-                              )}
-                            </button>
-                          </>
+                        <div className="metadata-item flex flex-col gap-1">
+                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">IP Domain:</span>
+                          <span className="text-sm font-semibold text-slate-100">{INTENT_MAP[queryResponse.debug_info?.intent || queryResponse.structured_content?.ip_domain] || 'Patentability'}</span>
+                        </div>
+                        <div className="metadata-item flex flex-col gap-1">
+                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Assessment Status:</span>
+                          <span className={`text-sm font-semibold ${
+                            (queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE'
+                              ? 'text-amber-300'
+                              : 'text-emerald-300'
+                          }`}>
+                            {(queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE' ? 'Potential Issue' : 'Supported'}
+                          </span>
+                        </div>
+                        <div className="metadata-item flex flex-col gap-1">
+                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Evidence Confidence:</span>
+                          <span className="text-sm font-semibold text-emerald-300">{queryResponse.evidence_confidence || queryResponse.confidence || 'HIGH'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* LEGAL ASSESSMENT SUMMARY (Section 6) */}
+                    <div className="assessment-hero-card p-6 rounded-2xl bg-slate-900/90 border border-emerald-500/30 shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                          <Scale className="w-5 h-5" />
+                          <h2 className="uppercase tracking-widest text-xs">Legal Assessment</h2>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                          (queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        }`}>
+                          <span>Status:</span>
+                          <span>{(queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE' ? 'Potential Issue' : 'Supported'}</span>
+                        </div>
+                      </div>
+
+                      {/* Concise 1-3 sentence summary */}
+                      <div className="hero-assessment text-slate-200 text-[15px] leading-relaxed legal-result">
+                        {renderStructuredText(
+                          queryResponse.structured_content?.summary ||
+                          queryResponse.structured_content?.assessment ||
+                          queryResponse.answer.split("\n\n")[0]
                         )}
                       </div>
-                    );
-                  })()
-                )}
-
-                {/* Regional Language Translation Display Box */}
-                {queryResponse.translated_answer && (
-                  <div className="translated-card">
-                    <div className="translated-card-title">
-                      <Globe className="w-4 h-4" />
-                      Translated Explanation ({targetLanguage || 'Regional Language'})
                     </div>
-                    <div className="answer-markdown">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{queryResponse.translated_answer}</ReactMarkdown>
+
+                    {/* ACCORDIONS FOR DETAILED SECTIONS */}
+                    <div className="accordions-wrapper space-y-4">
+                      {/* Core Verdict / Outcome */}
+                      {(queryResponse.structured_content?.core_verdict || queryResponse.structured_content?.outcome) && (
+                        <details open className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
+                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                              <span>Core Verdict / Outcome</span>
+                            </div>
+                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
+                          </summary>
+                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
+                            {renderStructuredText(queryResponse.structured_content.core_verdict || queryResponse.structured_content.outcome)}
+                          </div>
+                        </details>
+                      )}
+
+                      {/* Statutory Authority / Legal Basis */}
+                      {queryResponse.structured_content?.legal_basis && queryResponse.structured_content.legal_basis.length > 0 && (
+                        <details open className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
+                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
+                            <div className="flex items-center gap-3">
+                              <BookOpen className="w-5 h-5 text-indigo-400" />
+                              <span>Legal Basis & Statutory Authority</span>
+                            </div>
+                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
+                          </summary>
+                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
+                            <ul className="space-y-2.5 list-disc list-outside ml-4">
+                              {queryResponse.structured_content.legal_basis.map((item, idx) => (
+                                <li key={idx} className="pl-1">{renderStructuredText(item)}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </details>
+                      )}
+
+                      {/* Supporting Evidence (e.g., TKDL prior-art documentation) */}
+                      {queryResponse.structured_content?.supporting_evidence && queryResponse.structured_content.supporting_evidence.length > 0 && (
+                        <details open className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
+                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
+                            <div className="flex items-center gap-3">
+                              <Layers className="w-5 h-5 text-emerald-400" />
+                              <span>Supporting Evidence & Prior-Art Documentation</span>
+                            </div>
+                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
+                          </summary>
+                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
+                            <ul className="space-y-2.5 list-disc list-outside ml-4">
+                              {queryResponse.structured_content.supporting_evidence.map((item, idx) => (
+                                <li key={idx} className="pl-1">{renderStructuredText(item)}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </details>
+                      )}
+
+                      {/* Alternative IP Protection Routes (only if present) */}
+                      {queryResponse.structured_content?.alternative_routes && queryResponse.structured_content.alternative_routes.length > 0 && (
+                        <details className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
+                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
+                            <div className="flex items-center gap-3">
+                              <ShieldCheck className="w-5 h-5 text-teal-400" />
+                              <span>Alternative IP Protection Routes</span>
+                            </div>
+                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
+                          </summary>
+                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
+                            <ul className="space-y-2.5 list-disc list-outside ml-4">
+                              {queryResponse.structured_content.alternative_routes.map((item, idx) => (
+                                <li key={idx} className="pl-1">{renderStructuredText(item)}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </details>
+                      )}
+
+                      {/* Recommended Next Steps */}
+                      {((queryResponse.structured_content?.recommended_next_steps && queryResponse.structured_content.recommended_next_steps.length > 0) || queryResponse.structured_content?.next_action) && (
+                        <details className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
+                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
+                            <div className="flex items-center gap-3">
+                              <ChevronRight className="w-5 h-5 text-amber-400" />
+                              <span>Recommended Next Steps</span>
+                            </div>
+                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
+                          </summary>
+                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 space-y-3 leading-relaxed legal-result">
+                            {queryResponse.structured_content?.recommended_next_steps && queryResponse.structured_content.recommended_next_steps.length > 0 ? (
+                              <ul className="space-y-2 list-disc list-outside ml-4">
+                                {queryResponse.structured_content.recommended_next_steps.map((step, idx) => (
+                                  <li key={idx} className="pl-1">{renderStructuredText(step)}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              renderStructuredText(queryResponse.structured_content?.next_action)
+                            )}
+                          </div>
+                        </details>
+                      )}
                     </div>
                   </div>
                 )}
@@ -926,25 +1093,73 @@ export default function App() {
 
                 {/* Citations Grid */}
                 {queryResponse.citations && queryResponse.citations.length > 0 && (
-                  <div className="citations-wrapper">
-                    <div className="citations-heading">{t('citations_heading', 'Verified Statutory Sources & Citations')}</div>
-                    <div className="citations-grid">
-                      {queryResponse.citations.map((cit, idx) => (
-                        <a
-                          key={idx}
-                          href={getVerifiedUrl(cit.url, cit.source_name)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="citation-card"
-                        >
-                          <div>
-                            <span className="citation-title">{cit.source_name}</span>
-                            <span className="citation-sub">{cit.section}</span>
+                  <div className="citations-wrapper mt-8" id="citations-grid">
+                    <div className="citations-heading mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">{t('citations_heading', 'Verified Statutory Sources & Citations')}</div>
+                    <div className="citations-grid flex flex-col gap-3">
+                      {queryResponse.citations.map((cit, idx) => {
+                        let badge = '';
+                        if (cit.jurisdiction) badge = cit.jurisdiction;
+                        else if (cit.source_name?.includes('India')) badge = 'India';
+                        else if (cit.source_name?.includes('WIPO') || cit.source_name?.includes('TRIPS')) badge = 'International';
+                        
+                        return (
+                          <div key={idx} className="citation-card-new p-4 rounded-xl border border-slate-700/60 bg-slate-800/20 hover:border-emerald-500/40 transition-colors">
+                            <div className="cit-header flex items-start justify-between gap-4 mb-2">
+                              <div className="flex items-start gap-2.5">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="citation-title font-bold text-slate-200 text-[15px]">{cit.source_name}</div>
+                                  {cit.section && <div className="citation-section text-sm text-slate-400 font-medium">{cit.section}</div>}
+                                </div>
+                              </div>
+                              {badge && (
+                                <span className="cit-badge px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-700/50 text-slate-300 shrink-0">
+                                  {badge}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {cit.explanation && (
+                              <div className="cit-relevance ml-7.5 mt-3 pt-3 border-t border-slate-700/50 legal-result">
+                                <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Relevance</span>
+                                <div className="text-sm text-slate-300 leading-relaxed italic">{renderStructuredText(cit.explanation)}</div>
+                              </div>
+                            )}
+                            
+                            <div className="cit-action ml-7.5 mt-3">
+                              <a
+                                href={getVerifiedUrl(cit.url, cit.source_name)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="cit-view-link inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300"
+                              >
+                                [ View Source <ExternalLink className="w-3 h-3" /> ]
+                              </a>
+                            </div>
                           </div>
-                          <ExternalLink className="w-4 h-4 text-emerald-400 shrink-0" />
-                        </a>
-                      ))}
+                        );
+                      })}
                     </div>
+                  </div>
+                )}
+
+                {/* Answer Action Bar */}
+                {queryResponse.status !== "CLARIFY" && (
+                  <div className="answer-action-bar flex flex-wrap items-center gap-3 mt-8 pt-5 border-t border-slate-700/60">
+                    <button className="action-btn-styled" onClick={handleCopyAnswer}>
+                      <FileText className="w-4 h-4" /> Copy Answer
+                    </button>
+                    {queryResponse.citations && queryResponse.citations.length > 0 && (
+                      <button className="action-btn-styled" onClick={handleViewSources}>
+                        <BookOpen className="w-4 h-4" /> View Sources
+                      </button>
+                    )}
+                    <button className="action-btn-styled follow-up" onClick={() => document.querySelector('.prompt-textarea')?.focus()}>
+                      <ArrowRight className="w-4 h-4" /> Ask Follow-up
+                    </button>
+                    <button className="action-btn-styled start-new" onClick={handleStartNewAssessment}>
+                      <Search className="w-4 h-4" /> Start New Assessment
+                    </button>
                   </div>
                 )}
 
@@ -952,7 +1167,7 @@ export default function App() {
                 <div className="response-footer-strip">
                   <div className="legal-disclaimer">
                     <HelpCircle className="w-4 h-4 text-slate-500 shrink-0" />
-                    <span>{queryResponse.disclaimer || "This is informational guidance, not legal advice."}</span>
+                    <span>IP-SAKTI provides information and evidence-grounded guidance for research and decision support. It is not legal advice.</span>
                   </div>
 
                   {queryResponse.escalate_available && (

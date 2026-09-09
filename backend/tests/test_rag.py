@@ -92,13 +92,13 @@ def test_10_insufficient_retrieval_abstention():
 
 def test_11_multilingual_query():
     req = QueryRequest(
-        question="क्या मैं भारत में च्यवनप्राश पेटेंट करा सकता हूँ?",
+        question="\u0915\u094d\u092f\u093e \u092e\u0948\u0902 \u092d\u093e\u0930\u0924 \u092e\u0947\u0902 \u091a\u094d\u092f\u0935\u0928\u092a\u094d\u0930\u093e\u0936 \u092a\u0947\u091f\u0947\u0902\u091f \u0915\u0930\u093e \u0938\u0915\u0924\u093e \u0939\u0942\u0901?",
         jurisdiction="India",
         target_language="Hindi"
     )
     res = process_query(req)
     assert res.answer is not None
-    assert res.translated_answer is not None
+    assert res.translated_answer is None  # Translation is now native in the structured answer
 
 def test_12_malformed_input_sanitization():
     sanitized, _ = sanitize_and_check_injection("Hello\u200B\u200CWorld")
