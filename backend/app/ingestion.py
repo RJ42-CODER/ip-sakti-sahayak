@@ -59,12 +59,14 @@ def load_data_files(data_dir: Path) -> list[dict]:
     
     print(f"[DATA] Scanning for data files in: {data_dir}")
     for file_path in json_files:
+        if os.path.basename(file_path) == "corpus_freshness_state.json":
+            continue
         print(f"   -> Loading: {os.path.basename(file_path)}")
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, list):
                 documents.extend(data)
-            else:
+            elif isinstance(data, dict) and "text" in data:
                 documents.append(data)
                 
     print(f"Total raw legal entries loaded across files: {len(documents)}")
@@ -119,7 +121,10 @@ def run_ingestion():
 
     # 3. Generate Embeddings locally
     print(f"\n[MODEL] Loading HuggingFace model '{EMBEDDING_MODEL_NAME}'...")
-    embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    try:
+        embedder = SentenceTransformer(EMBEDDING_MODEL_NAME, local_files_only=True)
+    except Exception:
+        embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
     print("   Generating embeddings for chunks...")
     embeddings = embedder.encode(chunks_to_embed, show_progress_bar=False).tolist()
 

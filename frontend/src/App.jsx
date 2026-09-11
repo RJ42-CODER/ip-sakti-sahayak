@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import HowItWorks from './HowItWorks';
 import {
   Scale,
   Globe,
@@ -164,10 +165,115 @@ const renderStructuredText = (value) => {
   );
 };
 
+const hasValidContent = (val) => {
+  if (!val) return false;
+  if (Array.isArray(val)) {
+    return val.some(item => hasValidContent(item));
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    return trimmed.length > 0 && trimmed !== '-' && trimmed !== '—' && trimmed.toLowerCase() !== 'n/a' && trimmed.toLowerCase() !== 'none';
+  }
+  return true;
+};
+
 export default function App() {
-  // Navigation & Active View State
-  const [activeTab, setActiveTab] = useState('query');
+  // Navigation & Active View State with Hash Routing Support (#how-it-works)
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#how-it-works') {
+      return 'how-it-works';
+    }
+    return 'query';
+  });
+  const [showDetails, setShowDetails] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Sync hash routing with browser back / forward buttons
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#how-it-works') {
+        setActiveTab('how-it-works');
+      } else if (activeTab === 'how-it-works') {
+        setActiveTab('query');
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [activeTab]);
+
+  // Tab & Route Switcher with URL hash synchronization
+  const navigateTo = (tab) => {
+    if (tab === 'how-it-works') {
+      window.location.hash = 'how-it-works';
+    } else {
+      if (window.location.hash === '#how-it-works') {
+        history.pushState(null, '', window.location.pathname + window.location.search);
+      }
+    }
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Helper to extract clean query-aware primary verdict and short summary
+  const getVerdictAndSummary = (resp) => {
+    if (!resp) return { verdict: '', summary: '' };
+
+    if (resp.status === 'CLARIFY') {
+      return {
+        verdict: 'Clarification Needed',
+        summary: resp.answer
+      };
+    }
+
+    if (
+      resp.status === 'INSUFFICIENT_EVIDENCE' ||
+      resp.evidence_confidence === 'ABSTAIN' ||
+      resp.confidence === 'ABSTAIN' ||
+      resp.assessment_status === 'INSUFFICIENT_EVIDENCE'
+    ) {
+      return {
+        verdict: "Insufficient Evidence for a Definitive Assessment",
+        summary: resp.structured_content?.summary || resp.structured_content?.assessment || "I couldn't establish a reliable answer from the available evidence. A consultation with an authorized human IP facilitator is recommended."
+      };
+    }
+
+    let rawVerdict = resp.structured_content?.outcome || resp.structured_content?.core_verdict || '';
+    let rawSummary = resp.structured_content?.summary || resp.structured_content?.assessment || '';
+
+    // If neither was structured, extract from answer
+    if (!rawVerdict && resp.answer) {
+      const parts = resp.answer.split(/\n\n+/);
+      rawVerdict = parts[0] || '';
+      rawSummary = parts.slice(1).join('\n\n') || '';
+    }
+
+    // Clean markdown headings/prefixes/bold markers from verdict
+    let cleanVerdict = rawVerdict
+      .replace(/#{1,6}\s*/g, '')
+      .replace(/\*\*/g, '')
+      .replace(/^Core Verdict\s*[:\-]?\s*/i, '')
+      .replace(/^Outcome\s*[:\-]?\s*/i, '')
+      .replace(/^Verdict\s*[:\-]?\s*/i, '')
+      .trim();
+
+    // Clean summary
+    let cleanSummary = rawSummary
+      .replace(/#{1,6}\s*/g, '')
+      .replace(/^Assessment\s*[:\-]?\s*/i, '')
+      .replace(/^Summary\s*[:\-]?\s*/i, '')
+      .trim();
+
+    // If summary is empty or same as verdict, use next paragraph from answer
+    if ((!cleanSummary || cleanSummary === cleanVerdict) && resp.answer) {
+      const parts = resp.answer.split(/\n\n+/);
+      if (parts.length > 1) {
+        cleanSummary = parts[1];
+      }
+    }
+
+    return { verdict: cleanVerdict, summary: cleanSummary };
+  };
 
   // Hero Animation State
   const [heroPhraseIndex, setHeroPhraseIndex] = useState(0);
@@ -461,43 +567,49 @@ export default function App() {
 
   // Helper for Genuine Backend Confidence Badge
   const getConfidenceBadge = (confidence) => {
-    switch (confidence) {
-      case 'High':
+    const normalized = (confidence || '').toString().trim().toUpperCase();
+    switch (normalized) {
+      case 'HIGH':
         return (
           <div className="confidence-indicator high" title="Evidence confidence based on retrieval strength, not probability of legal success">
-            <div className="confidence-dot"></div>
+            <div className="confidence-dot" aria-hidden="true"></div>
             <div className="confidence-text">
-              <span className="conf-level">High</span>
+              <span className="conf-level font-bold">HIGH</span>
+              <span className="conf-separator text-slate-400"> — </span>
               <span className="conf-desc">Strong authoritative evidence</span>
             </div>
           </div>
         );
-      case 'Medium':
+      case 'MEDIUM':
         return (
           <div className="confidence-indicator medium" title="Evidence confidence based on retrieval strength, not probability of legal success">
-            <div className="confidence-dot"></div>
+            <div className="confidence-dot" aria-hidden="true"></div>
             <div className="confidence-text">
-              <span className="conf-level">Medium</span>
+              <span className="conf-level font-bold">MEDIUM</span>
+              <span className="conf-separator text-slate-400"> — </span>
               <span className="conf-desc">Partial/qualified evidence</span>
             </div>
           </div>
         );
-      case 'Low':
+      case 'LOW':
         return (
           <div className="confidence-indicator low" title="Evidence confidence based on retrieval strength, not probability of legal success">
-            <div className="confidence-dot"></div>
+            <div className="confidence-dot" aria-hidden="true"></div>
             <div className="confidence-text">
-              <span className="conf-level">Low</span>
+              <span className="conf-level font-bold">LOW</span>
+              <span className="conf-separator text-slate-400"> — </span>
               <span className="conf-desc">Limited supporting evidence</span>
             </div>
           </div>
         );
       default:
         return (
-          <div className="confidence-indicator abstain">
-            <div className="confidence-dot"></div>
+          <div className="confidence-indicator abstain" title="Evidence confidence based on retrieval strength">
+            <div className="confidence-dot" aria-hidden="true"></div>
             <div className="confidence-text">
-              <span className="conf-level">Insufficient Evidence</span>
+              <span className="conf-level font-bold">INSUFFICIENT EVIDENCE</span>
+              <span className="conf-separator text-slate-400"> — </span>
+              <span className="conf-desc">Insufficient evidence for assessment</span>
             </div>
           </div>
         );
@@ -510,6 +622,7 @@ export default function App() {
     setQuestion('');
     setQueryError('');
     setShowFullExplanation(false);
+    setShowDetails(false);
     const newId = 'sess_' + Math.random().toString(36).substring(2, 10);
     localStorage.setItem('ipsakti_session_id', newId);
     setSessionId(newId);
@@ -534,8 +647,11 @@ export default function App() {
   };
 
   const handleViewSources = () => {
-    const el = document.getElementById('citations-grid');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setShowDetails(true);
+    setTimeout(() => {
+      const el = document.getElementById('citations-grid');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   // Helper for splitting answer into bold first-line takeaway and detailed explanation
@@ -580,19 +696,19 @@ export default function App() {
           <nav className="nav-links">
             <button
               className={`nav-link-btn ${activeTab === 'query' ? 'active' : ''}`}
-              onClick={() => setActiveTab('query')}
+              onClick={() => navigateTo('query')}
             >
               <Search className="w-4 h-4" /> {t('nav_ask', 'Ask IP-SAKTI')}
             </button>
             <button
               className={`nav-link-btn ${activeTab === 'classify' ? 'active' : ''}`}
-              onClick={() => setActiveTab('classify')}
+              onClick={() => navigateTo('classify')}
             >
               <Tag className="w-4 h-4" /> {t('nav_classifier', 'Regulatory Classifier')}
             </button>
             <button
               className={`nav-link-btn ${activeTab === 'how-it-works' ? 'active' : ''}`}
-              onClick={() => setActiveTab('how-it-works')}
+              onClick={() => navigateTo('how-it-works')}
             >
               <Layers className="w-4 h-4" /> {t('nav_how_it_works', 'How It Works')}
             </button>
@@ -605,91 +721,114 @@ export default function App() {
             <Menu className="w-6 h-6" />
           </button>
         </div>
+
+        {/* Mobile Dropdown Navigation */}
+        {mobileMenuOpen && (
+          <div className="mobile-nav-dropdown p-4 bg-slate-900/95 border-b border-slate-800 flex flex-col gap-2">
+            <button
+              className={`nav-link-btn text-left flex items-center gap-2 ${activeTab === 'query' ? 'active' : ''}`}
+              onClick={() => navigateTo('query')}
+            >
+              <Search className="w-4 h-4" /> {t('nav_ask', 'Ask IP-SAKTI')}
+            </button>
+            <button
+              className={`nav-link-btn text-left flex items-center gap-2 ${activeTab === 'classify' ? 'active' : ''}`}
+              onClick={() => navigateTo('classify')}
+            >
+              <Tag className="w-4 h-4" /> {t('nav_classifier', 'Regulatory Classifier')}
+            </button>
+            <button
+              className={`nav-link-btn text-left flex items-center gap-2 ${activeTab === 'how-it-works' ? 'active' : ''}`}
+              onClick={() => navigateTo('how-it-works')}
+            >
+              <Layers className="w-4 h-4" /> {t('nav_how_it_works', 'How It Works')}
+            </button>
+          </div>
+        )}
       </header>
 
-      {/* HERO SECTION WITH AYURVEDIC PHOTOGRAPH */}
-      <section className="hero-section">
-        <div className="hero-bg-container">
-          <img
-            src="/ayurvedic.jpg"
-            alt="Ayurvedic Traditional Knowledge background"
-            className="hero-bg-image"
-          />
-          <div className="hero-overlay"></div>
-        </div>
+      {/* VIEW CONDITIONAL: DEDICATED HOW IT WORKS PAGE VS MAIN WORKSPACE */}
+      {activeTab === 'how-it-works' ? (
+        <HowItWorks onBackToAsk={() => navigateTo('query')} />
+      ) : (
+        <>
+          {/* HERO SECTION WITH AYURVEDIC PHOTOGRAPH */}
+          <section className="hero-section">
+            <div className="hero-bg-container">
+              <img
+                src="/ayurvedic.jpg"
+                alt="Ayurvedic Traditional Knowledge background"
+                className="hero-bg-image"
+              />
+              <div className="hero-overlay"></div>
+            </div>
 
-        <div className="hero-content">
-          <div className="hero-badge">
-            <BookOpen className="w-4 h-4" /> {t('hero_badge', 'AI Guidance for Traditional Knowledge & IP')}
-          </div>
+            <div className="hero-content">
+              <div className="hero-badge">
+                <BookOpen className="w-4 h-4" /> {t('hero_badge', 'AI Guidance for Traditional Knowledge & IP')}
+              </div>
 
-          <h1 className="hero-title">
-            {t('hero_title_1', 'Protecting Wisdom.')} <br />
-            {t('hero_title_2', 'Navigating')}&nbsp;
-            <span className="hero-title-highlight">{t('hero_title_3', 'Ayurvedic IP Law.')}</span>
-          </h1>
+              <h1 className="hero-title">
+                {t('hero_title_1', 'Protecting Wisdom.')} <br />
+                {t('hero_title_2', 'Navigating')}&nbsp;
+                <span className="hero-title-highlight">{t('hero_title_3', 'Ayurvedic IP Law.')}</span>
+              </h1>
 
-          <div className="hero-description" style={{ minHeight: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span style={{ color: 'var(--slate-300)' }}>Intelligent legal guidance for</span>
-            <span 
-              key={heroPhraseIndex}
-              className="animate-phrase-fade text-emerald-400 font-bold tracking-wide mt-2 text-center block"
-              style={{ maxWidth: '100%', lineHeight: '1.4' }}
-            >
-              {heroPhrases[heroPhraseIndex]}
-            </span>
-          </div>
+              <div className="hero-description" style={{ minHeight: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span style={{ color: 'var(--slate-300)' }}>Evidence-Based IP Information for</span>
+                <span 
+                  key={heroPhraseIndex}
+                  className="animate-phrase-fade text-emerald-400 font-bold tracking-wide mt-2 text-center block"
+                  style={{ maxWidth: '100%', lineHeight: '1.4' }}
+                >
+                  {heroPhrases[heroPhraseIndex]}
+                </span>
+              </div>
 
-          <div className="hero-actions">
-            <button
-              className="btn-hero-primary"
-              onClick={() => {
-                setActiveTab('query');
-                const el = document.getElementById('ask-workspace');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-            >
-              {t('hero_btn_ask', 'Ask IP-SAKTI')} <ArrowRight className="w-5 h-5" />
-            </button>
-            <button
-              className="btn-hero-secondary"
-              onClick={() => {
-                setActiveTab('classify');
-                const el = document.getElementById('ask-workspace');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-            >
-              <Tag className="w-4 h-4" /> {t('hero_btn_classify', 'Classify Formulation')}
-            </button>
-          </div>
-        </div>
-      </section>
+              <div className="hero-actions">
+                <button
+                  className="btn-hero-primary"
+                  onClick={() => {
+                    navigateTo('query');
+                    const el = document.getElementById('ask-workspace');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  {t('hero_btn_ask', 'Ask IP-SAKTI')} <ArrowRight className="w-5 h-5" />
+                </button>
+                <button
+                  className="btn-hero-secondary"
+                  onClick={() => {
+                    navigateTo('classify');
+                    const el = document.getElementById('ask-workspace');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <Tag className="w-4 h-4" /> {t('hero_btn_classify', 'Classify Formulation')}
+                </button>
+              </div>
+            </div>
+          </section>
 
-      {/* MAIN WORKSPACE AREA */}
-      <main className="workspace-container" id="ask-workspace">
-        {/* Navigation Tabs Bar for Workspace */}
-        <div className="flex justify-center mb-8">
-          <div className="workspace-tab-switcher">
-            <button
-              className={`workspace-tab-btn ${activeTab === 'query' ? 'active' : ''}`}
-              onClick={() => setActiveTab('query')}
-            >
-              <Search className="w-4 h-4" /> {t('tab_ask_legal', 'Ask IP-SAKTI Legal Engine')}
-            </button>
-            <button
-              className={`workspace-tab-btn ${activeTab === 'classify' ? 'active' : ''}`}
-              onClick={() => setActiveTab('classify')}
-            >
-              <Tag className="w-4 h-4" /> {t('tab_classifier', 'Product Regulatory Classifier')}
-            </button>
-            <button
-              className={`workspace-tab-btn ${activeTab === 'how-it-works' ? 'active' : ''}`}
-              onClick={() => setActiveTab('how-it-works')}
-            >
-              <Layers className="w-4 h-4" /> {t('tab_corpus', 'Legal Corpus & Architecture')}
-            </button>
-          </div>
-        </div>
+          {/* MAIN WORKSPACE AREA */}
+          <main className="workspace-container" id="ask-workspace">
+            {/* Navigation Tabs Bar for Workspace (Removed Legal Corpus & Architecture) */}
+            <div className="flex justify-center mb-8">
+              <div className="workspace-tab-switcher">
+                <button
+                  className={`workspace-tab-btn ${activeTab === 'query' ? 'active' : ''}`}
+                  onClick={() => navigateTo('query')}
+                >
+                  <Search className="w-4 h-4" /> {t('tab_ask_legal', 'Ask IP-SAKTI Legal Engine')}
+                </button>
+                <button
+                  className={`workspace-tab-btn ${activeTab === 'classify' ? 'active' : ''}`}
+                  onClick={() => navigateTo('classify')}
+                >
+                  <Tag className="w-4 h-4" /> {t('tab_classifier', 'Product Regulatory Classifier')}
+                </button>
+              </div>
+            </div>
 
         {/* TAB 1: ASK IP-SAKTI MAIN AI ASSISTANT */}
         {activeTab === 'query' && (
@@ -765,8 +904,7 @@ export default function App() {
                         onClick={toggleVoiceInput}
                         title="Voice speech-to-text input powered by Web Speech API"
                       >
-                        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                        {isListening ? t('voice_listening', 'Listening...') : `🎙 ${t('voice_input_btn', 'Voice Input')}`}
+                        🎙 {isListening ? t('voice_listening', 'Listening...') : t('voice_input_btn', 'Voice Input')}
                       </button>
                     </div>
 
@@ -870,17 +1008,11 @@ export default function App() {
               <div className="card-glass response-container">
                 <div className="response-header-bar">
                   <div className="response-title">
-                    <FileText className="w-5 h-5 text-emerald-400" />
-                    <span>IP Legal Guidance & Statutory Analysis</span>
-                    <span className="text-xs px-2.5 py-1 bg-slate-800 border border-slate-700 text-slate-300 rounded-full font-medium">
-                      Jurisdiction: {jurisdiction}
-                    </span>
+                    <Scale className="w-5 h-5 text-emerald-400" />
+                    <span>IP Legal Information & Statutory Assessment</span>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Genuine Backend Confidence Indicator */}
-                    {getConfidenceBadge(queryResponse.confidence)}
-
                     {/* Text-to-Speech Button */}
                     <button
                       type="button"
@@ -915,231 +1047,232 @@ export default function App() {
                     {queryResponse.debug_info?.is_follow_up && (
                       <div className="follow-up-context flex items-center gap-2 text-xs font-semibold text-emerald-400/80 mb-2 px-1">
                         <ArrowRight className="w-3.5 h-3.5" />
-                        <span>↳ Continuing assessment for: <strong className="text-emerald-300">{queryResponse.debug_info.product || 'Query'}</strong> | Jurisdiction: {queryResponse.debug_info.resolved_jurisdiction || jurisdiction} | Domain: {INTENT_MAP[queryResponse.debug_info.intent] || 'Legal Domain'}</span>
+                        <span>↳ Continuing assessment for: <strong className="text-emerald-300">{queryResponse.debug_info.product || 'Query'}</strong> | Jurisdiction: {queryResponse.debug_info.resolved_jurisdiction || jurisdiction}</span>
                       </div>
                     )}
 
-                    {/* Unified Metadata Banner (Section 10) */}
-                    <div className="summary-strip-container">
-                      <div className="summary-strip grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <div className="metadata-item flex flex-col gap-1">
-                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Jurisdiction:</span>
-                          <span className="text-sm font-semibold text-slate-100">{queryResponse.debug_info?.resolved_jurisdiction || queryResponse.structured_content?.jurisdiction || jurisdiction}</span>
-                        </div>
-                        <div className="metadata-item flex flex-col gap-1">
-                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">IP Domain:</span>
-                          <span className="text-sm font-semibold text-slate-100">{INTENT_MAP[queryResponse.debug_info?.intent || queryResponse.structured_content?.ip_domain] || 'Patentability'}</span>
-                        </div>
-                        <div className="metadata-item flex flex-col gap-1">
-                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Assessment Status:</span>
-                          <span className={`text-sm font-semibold ${
-                            (queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE'
-                              ? 'text-amber-300'
-                              : 'text-emerald-300'
-                          }`}>
-                            {(queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE' ? 'Potential Issue' : 'Supported'}
-                          </span>
-                        </div>
-                        <div className="metadata-item flex flex-col gap-1">
-                          <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Evidence Confidence:</span>
-                          <span className="text-sm font-semibold text-emerald-300">{queryResponse.evidence_confidence || queryResponse.confidence || 'HIGH'}</span>
-                        </div>
-                      </div>
-                    </div>
+                    {/* PRIMARY ANSWER & VERDICT CARD (First thing the user sees) */}
+                    {(() => {
+                      const { verdict, summary } = getVerdictAndSummary(queryResponse);
+                      const domainName = INTENT_MAP[queryResponse.debug_info?.intent || queryResponse.structured_content?.ip_domain] || 'IP & Regulatory';
+                      const jurName = queryResponse.debug_info?.resolved_jurisdiction || queryResponse.structured_content?.jurisdiction || jurisdiction;
 
-                    {/* LEGAL ASSESSMENT SUMMARY (Section 6) */}
-                    <div className="assessment-hero-card p-6 rounded-2xl bg-slate-900/90 border border-emerald-500/30 shadow-lg relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
-                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                        <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                          <Scale className="w-5 h-5" />
-                          <h2 className="uppercase tracking-widest text-xs">Legal Assessment</h2>
-                        </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                          (queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE'
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                        }`}>
-                          <span>Status:</span>
-                          <span>{(queryResponse.assessment_status || queryResponse.structured_content?.assessment_status) === 'POTENTIAL_ISSUE' ? 'Potential Issue' : 'Supported'}</span>
-                        </div>
-                      </div>
+                      return (
+                        <div className="assessment-hero-card p-6 rounded-2xl bg-slate-900/90 border border-emerald-500/30 shadow-lg relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
 
-                      {/* Concise 1-3 sentence summary */}
-                      <div className="hero-assessment text-slate-200 text-[15px] leading-relaxed legal-result">
-                        {renderStructuredText(
-                          queryResponse.structured_content?.summary ||
-                          queryResponse.structured_content?.assessment ||
-                          queryResponse.answer.split("\n\n")[0]
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ACCORDIONS FOR DETAILED SECTIONS */}
-                    <div className="accordions-wrapper space-y-4">
-                      {/* Core Verdict / Outcome */}
-                      {(queryResponse.structured_content?.core_verdict || queryResponse.structured_content?.outcome) && (
-                        <details open className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
-                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
-                            <div className="flex items-center gap-3">
-                              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                              <span>Core Verdict / Outcome</span>
-                            </div>
-                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
-                          </summary>
-                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
-                            {renderStructuredText(queryResponse.structured_content.core_verdict || queryResponse.structured_content.outcome)}
+                          {/* Domain / Jurisdiction Eyebrow */}
+                          <div className="result-header-eyebrow">
+                            <span className="result-eyebrow-tag">
+                              {domainName} • {jurName}
+                            </span>
                           </div>
-                        </details>
-                      )}
 
-                      {/* Statutory Authority / Legal Basis */}
-                      {queryResponse.structured_content?.legal_basis && queryResponse.structured_content.legal_basis.length > 0 && (
-                        <details open className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
-                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
-                            <div className="flex items-center gap-3">
-                              <BookOpen className="w-5 h-5 text-indigo-400" />
-                              <span>Legal Basis & Statutory Authority</span>
+                          {/* Primary Verdict Headline */}
+                          {verdict && (
+                            <h2 className="result-verdict-title">
+                              {verdict.replace(/\*\*/g, '').replace(/#{1,6}\s*/g, '').trim()}
+                            </h2>
+                          )}
+
+                          {/* Concise 1-3 sentence summary */}
+                          {summary && (
+                            <div className="result-short-summary legal-result">
+                              {renderStructuredText(summary)}
                             </div>
-                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
-                          </summary>
-                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
-                            <ul className="space-y-2.5 list-disc list-outside ml-4">
-                              {queryResponse.structured_content.legal_basis.map((item, idx) => (
-                                <li key={idx} className="pl-1">{renderStructuredText(item)}</li>
-                              ))}
-                            </ul>
+                          )}
+
+                          {/* View in Details Toggle Button */}
+                          <div className="mt-4">
+                            <button
+                              type="button"
+                              className="btn-view-details"
+                              onClick={() => setShowDetails(!showDetails)}
+                            >
+                              <span>{showDetails ? 'Hide Details' : 'View in Details'}</span>
+                              {showDetails ? (
+                                <ChevronUp className="w-4 h-4 ml-1.5 inline shrink-0" aria-hidden="true" focusable="false" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 ml-1.5 inline shrink-0" aria-hidden="true" focusable="false" />
+                              )}
+                            </button>
                           </div>
-                        </details>
-                      )}
 
-                      {/* Supporting Evidence (e.g., TKDL prior-art documentation) */}
-                      {queryResponse.structured_content?.supporting_evidence && queryResponse.structured_content.supporting_evidence.length > 0 && (
-                        <details open className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
-                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
-                            <div className="flex items-center gap-3">
-                              <Layers className="w-5 h-5 text-emerald-400" />
-                              <span>Supporting Evidence & Prior-Art Documentation</span>
-                            </div>
-                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
-                          </summary>
-                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
-                            <ul className="space-y-2.5 list-disc list-outside ml-4">
-                              {queryResponse.structured_content.supporting_evidence.map((item, idx) => (
-                                <li key={idx} className="pl-1">{renderStructuredText(item)}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </details>
-                      )}
-
-                      {/* Alternative IP Protection Routes (only if present) */}
-                      {queryResponse.structured_content?.alternative_routes && queryResponse.structured_content.alternative_routes.length > 0 && (
-                        <details className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
-                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
-                            <div className="flex items-center gap-3">
-                              <ShieldCheck className="w-5 h-5 text-teal-400" />
-                              <span>Alternative IP Protection Routes</span>
-                            </div>
-                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
-                          </summary>
-                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 leading-relaxed legal-result">
-                            <ul className="space-y-2.5 list-disc list-outside ml-4">
-                              {queryResponse.structured_content.alternative_routes.map((item, idx) => (
-                                <li key={idx} className="pl-1">{renderStructuredText(item)}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </details>
-                      )}
-
-                      {/* Recommended Next Steps */}
-                      {((queryResponse.structured_content?.recommended_next_steps && queryResponse.structured_content.recommended_next_steps.length > 0) || queryResponse.structured_content?.next_action) && (
-                        <details className="ui-accordion group rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-all duration-200 hover:border-slate-700">
-                          <summary className="p-4 flex items-center justify-between cursor-pointer text-[15px] font-semibold text-slate-100 bg-slate-800/40 group-hover:bg-slate-800/60">
-                            <div className="flex items-center gap-3">
-                              <ChevronRight className="w-5 h-5 text-amber-400" />
-                              <span>Recommended Next Steps</span>
-                            </div>
-                            <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
-                          </summary>
-                          <div className="p-5 pt-3 text-sm text-slate-300 border-t border-slate-800/80 space-y-3 leading-relaxed legal-result">
-                            {queryResponse.structured_content?.recommended_next_steps && queryResponse.structured_content.recommended_next_steps.length > 0 ? (
-                              <ul className="space-y-2 list-disc list-outside ml-4">
-                                {queryResponse.structured_content.recommended_next_steps.map((step, idx) => (
-                                  <li key={idx} className="pl-1">{renderStructuredText(step)}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              renderStructuredText(queryResponse.structured_content?.next_action)
-                            )}
-                          </div>
-                        </details>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Verifier Warning Banner */}
-                {hasVerifierCaveat && (
-                  <div className="p-4 rounded-lg bg-amber-950/40 border border-amber-500/40 text-amber-200 flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                    <div className="text-xs">
-                      <span className="font-bold text-amber-300 block">Independent Auditor Flag</span>
-                      Parts of this answer could not be fully verified against the cited sources — human legal review is recommended for high-stakes decisions.
-                    </div>
-                  </div>
-                )}
-
-                {/* Citations Grid */}
-                {queryResponse.citations && queryResponse.citations.length > 0 && (
-                  <div className="citations-wrapper mt-8" id="citations-grid">
-                    <div className="citations-heading mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">{t('citations_heading', 'Verified Statutory Sources & Citations')}</div>
-                    <div className="citations-grid flex flex-col gap-3">
-                      {queryResponse.citations.map((cit, idx) => {
-                        let badge = '';
-                        if (cit.jurisdiction) badge = cit.jurisdiction;
-                        else if (cit.source_name?.includes('India')) badge = 'India';
-                        else if (cit.source_name?.includes('WIPO') || cit.source_name?.includes('TRIPS')) badge = 'International';
-                        
-                        return (
-                          <div key={idx} className="citation-card-new p-4 rounded-xl border border-slate-700/60 bg-slate-800/20 hover:border-emerald-500/40 transition-colors">
-                            <div className="cit-header flex items-start justify-between gap-4 mb-2">
-                              <div className="flex items-start gap-2.5">
-                                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                                <div>
-                                  <div className="citation-title font-bold text-slate-200 text-[15px]">{cit.source_name}</div>
-                                  {cit.section && <div className="citation-section text-sm text-slate-400 font-medium">{cit.section}</div>}
+                          {/* Progressive Disclosure: Details View (collapsed by default) */}
+                          {showDetails && (
+                            <div className="result-details-wrapper">
+                              {/* 1. Evidence Confidence (Inside Details) */}
+                              <div className="details-confidence-box">
+                                <div className="details-conf-left">
+                                  <span className="details-conf-label">Evidence Confidence:</span>
+                                  {getConfidenceBadge(queryResponse.evidence_confidence || queryResponse.structured_content?.evidence_confidence || queryResponse.confidence || queryResponse.structured_content?.confidence)}
+                                </div>
+                                <div className="details-conf-note">
+                                  Evidence confidence describes the strength of the supporting information — it is not a prediction of whether an application will be approved.
                                 </div>
                               </div>
-                              {badge && (
-                                <span className="cit-badge px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-700/50 text-slate-300 shrink-0">
-                                  {badge}
-                                </span>
+
+                              {/* 2. Why This Applies / Detailed Assessment */}
+                              {queryResponse.structured_content?.assessment && queryResponse.structured_content.assessment !== summary && (
+                                <div className="detail-section-card">
+                                  <div className="detail-section-title" role="heading" aria-level={3}>
+                                    <Scale className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" focusable="false" />
+                                    <span>Why This Applies</span>
+                                  </div>
+                                  <div className="detail-section-body legal-result">
+                                    {renderStructuredText(queryResponse.structured_content.assessment)}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 3. Legal Basis & Statutory Authority */}
+                              {hasValidContent(queryResponse.structured_content?.legal_basis) && (
+                                <div className="detail-section-card">
+                                  <div className="detail-section-title" role="heading" aria-level={3}>
+                                    <BookOpen className="w-4 h-4 text-indigo-400 shrink-0" aria-hidden="true" focusable="false" />
+                                    <span>Legal / Regulatory Basis</span>
+                                  </div>
+                                  <div className="detail-section-body legal-result">
+                                    <ul className="detail-bullet-list">
+                                      {queryResponse.structured_content.legal_basis.map((item, idx) => (
+                                        <li key={idx} className="detail-bullet-item">{renderStructuredText(item)}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 4. Supporting Evidence (TKDL / Documentation) */}
+                              {hasValidContent(queryResponse.structured_content?.supporting_evidence) && (
+                                <div className="detail-section-card">
+                                  <div className="detail-section-title" role="heading" aria-level={3}>
+                                    <Layers className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" focusable="false" />
+                                    <span>Supporting Evidence</span>
+                                  </div>
+                                  <div className="detail-section-body legal-result">
+                                    <ul className="detail-bullet-list">
+                                      {queryResponse.structured_content.supporting_evidence.map((item, idx) => (
+                                        <li key={idx} className="detail-bullet-item">{renderStructuredText(item)}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 5. Conditions & Exceptions (only if present and non-empty) */}
+                              {hasValidContent(queryResponse.structured_content?.conditions_or_exceptions) && (
+                                <div className="detail-section-card">
+                                  <div className="detail-section-title" role="heading" aria-level={3}>
+                                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" focusable="false" />
+                                    <span>Conditions & Exceptions</span>
+                                  </div>
+                                  <div className="detail-section-body legal-result">
+                                    {renderStructuredText(queryResponse.structured_content.conditions_or_exceptions)}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 6. Alternative IP Protection Routes (only if present and relevant) */}
+                              {hasValidContent(queryResponse.structured_content?.alternative_routes) && (
+                                <div className="detail-section-card">
+                                  <div className="detail-section-title" role="heading" aria-level={3}>
+                                    <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" aria-hidden="true" focusable="false" />
+                                    <span>Alternative Routes</span>
+                                  </div>
+                                  <div className="detail-section-body legal-result">
+                                    <ul className="detail-bullet-list">
+                                      {queryResponse.structured_content.alternative_routes.map((item, idx) => (
+                                        <li key={idx} className="detail-bullet-item">{renderStructuredText(item)}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 7. Recommended Next Steps */}
+                              {(hasValidContent(queryResponse.structured_content?.recommended_next_steps) || hasValidContent(queryResponse.structured_content?.next_action)) && (
+                                <div className="detail-section-card">
+                                  <div className="detail-section-title" role="heading" aria-level={3}>
+                                    <ChevronRight className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" focusable="false" />
+                                    <span>Next Steps</span>
+                                  </div>
+                                  <div className="detail-section-body legal-result">
+                                    {hasValidContent(queryResponse.structured_content?.recommended_next_steps) ? (
+                                      <ul className="detail-bullet-list">
+                                        {queryResponse.structured_content.recommended_next_steps.map((step, idx) => (
+                                          <li key={idx} className="detail-bullet-item">{renderStructuredText(step)}</li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      renderStructuredText(queryResponse.structured_content?.next_action)
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 8. Verified Sources & Citations */}
+                              {queryResponse.citations && queryResponse.citations.length > 0 && (
+                                <div className="detail-section-card" id="citations-grid">
+                                  <div className="detail-section-title" role="heading" aria-level={3}>
+                                    <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" focusable="false" />
+                                    <span>Verified Sources & Citations — links to the relevant official source/document</span>
+                                  </div>
+                                  <div className="flex flex-col gap-3 mt-3">
+                                    {queryResponse.citations.map((cit, idx) => {
+                                      let badge = '';
+                                      if (cit.jurisdiction) badge = cit.jurisdiction;
+                                      else if (cit.source_name?.includes('India')) badge = 'India';
+                                      else if (cit.source_name?.includes('WIPO') || cit.source_name?.includes('TRIPS')) badge = 'International';
+
+                                      const citeUrl = getVerifiedUrl(cit.url, cit.source_name);
+
+                                      return (
+                                        <div key={idx} className="citation-card-new p-4 rounded-xl border border-slate-700/60 bg-slate-800/20 hover:border-emerald-500/40 transition-colors">
+                                          <div className="cit-header flex items-start justify-between gap-4 mb-2">
+                                            <div className="flex items-start gap-2.5">
+                                              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" focusable="false" />
+                                              <div>
+                                                <div className="citation-title font-bold text-slate-200 text-[15px]">{cit.source_name}</div>
+                                                {cit.section && <div className="citation-section text-sm text-slate-400 font-medium">{cit.section}</div>}
+                                              </div>
+                                            </div>
+                                            {badge && (
+                                              <span className="cit-badge px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-700/50 text-slate-300 shrink-0">
+                                                {badge}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {cit.explanation && (
+                                            <div className="cit-relevance ml-7.5 mt-3 pt-3 border-t border-slate-700/50 legal-result">
+                                              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Relevance</span>
+                                              <div className="text-sm text-slate-300 leading-relaxed italic">{renderStructuredText(cit.explanation)}</div>
+                                            </div>
+                                          )}
+
+                                          {citeUrl && (
+                                            <div className="cit-action ml-7.5 mt-3">
+                                              <a
+                                                href={citeUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="cit-view-link inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300"
+                                              >
+                                                [ View Source <ExternalLink className="w-3 h-3 shrink-0 ml-1 inline" aria-hidden="true" focusable="false" /> ]
+                                              </a>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                               )}
                             </div>
-                            
-                            {cit.explanation && (
-                              <div className="cit-relevance ml-7.5 mt-3 pt-3 border-t border-slate-700/50 legal-result">
-                                <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Relevance</span>
-                                <div className="text-sm text-slate-300 leading-relaxed italic">{renderStructuredText(cit.explanation)}</div>
-                              </div>
-                            )}
-                            
-                            <div className="cit-action ml-7.5 mt-3">
-                              <a
-                                href={getVerifiedUrl(cit.url, cit.source_name)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="cit-view-link inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300"
-                              >
-                                [ View Source <ExternalLink className="w-3 h-3" /> ]
-                              </a>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -1147,18 +1280,18 @@ export default function App() {
                 {queryResponse.status !== "CLARIFY" && (
                   <div className="answer-action-bar flex flex-wrap items-center gap-3 mt-8 pt-5 border-t border-slate-700/60">
                     <button className="action-btn-styled" onClick={handleCopyAnswer}>
-                      <FileText className="w-4 h-4" /> Copy Answer
+                      <FileText className="w-4 h-4 shrink-0 mr-1.5 inline" aria-hidden="true" focusable="false" /><span>Copy Answer</span>
                     </button>
                     {queryResponse.citations && queryResponse.citations.length > 0 && (
                       <button className="action-btn-styled" onClick={handleViewSources}>
-                        <BookOpen className="w-4 h-4" /> View Sources
+                        <BookOpen className="w-4 h-4 shrink-0 mr-1.5 inline" aria-hidden="true" focusable="false" /><span>View Sources</span>
                       </button>
                     )}
                     <button className="action-btn-styled follow-up" onClick={() => document.querySelector('.prompt-textarea')?.focus()}>
-                      <ArrowRight className="w-4 h-4" /> Ask Follow-up
+                      <ArrowRight className="w-4 h-4 shrink-0 mr-1.5 inline" aria-hidden="true" focusable="false" /><span>Ask Follow-up</span>
                     </button>
                     <button className="action-btn-styled start-new" onClick={handleStartNewAssessment}>
-                      <Search className="w-4 h-4" /> Start New Assessment
+                      <Search className="w-4 h-4 shrink-0 mr-1.5 inline" aria-hidden="true" focusable="false" /><span>Start New Assessment</span>
                     </button>
                   </div>
                 )}
@@ -1294,39 +1427,9 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: HOW IT WORKS & KNOWLEDGE SOURCES */}
-        {activeTab === 'how-it-works' && (
-          <div>
-            <div className="section-header">
-              <span className="section-tag">Platform Architecture</span>
-              <h2 className="section-title">Legal Knowledge & RAG Engine</h2>
-              <p className="section-subtitle">
-                IP-SAKTI Sahayak combines verified statutory legal corpora, vector retrieval, and closed-context audit verification.
-              </p>
-            </div>
-
-            <div className="info-grid">
-              <div className="info-card">
-                <div className="info-icon-box"><BookOpen className="w-6 h-6" /></div>
-                <h3>Patents Act, 1970</h3>
-                <p>Grounding in Section 3(p), Section 3(d), Section 3(h), and statutory exclusions for traditional knowledge and classical formulations.</p>
-              </div>
-
-              <div className="info-card">
-                <div className="info-icon-box"><ShieldCheck className="w-6 h-6" /></div>
-                <h3>Biological Diversity Act, 2002</h3>
-                <p>Compliance guidelines for National Biodiversity Authority (NBA) approval, Access and Benefit Sharing (ABS), and Nagoya Protocol obligations.</p>
-              </div>
-
-              <div className="info-card">
-                <div className="info-icon-box"><Globe className="w-6 h-6" /></div>
-                <h3>TRIPS Agreement</h3>
-                <p>International intellectual property standards under WIPO, TRIPS Article 27, and landmark revocation case studies (Neem, Turmeric, Basmati).</p>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
+    </>
+  )}
 
       {/* HUMAN EXPERT ESCALATION MODAL */}
       {showEscalatedModal && (

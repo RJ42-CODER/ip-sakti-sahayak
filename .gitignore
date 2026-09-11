@@ -7,3 +7,5 @@ dist/
 .env
 !.env.example
 backend/chroma_db/
+scratch/
+*.local.json
