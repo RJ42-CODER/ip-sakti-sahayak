@@ -4,7 +4,10 @@ import re
 import json
 import uuid
 import logging
+import urllib.parse
+import time
 import httpx
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Any
@@ -14,6 +17,9 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 
 import time
+
+
+
 from threading import Lock, RLock
 
 # Set up logging
@@ -167,19 +173,22 @@ def sanitize_and_check_injection(user_input: str) -> tuple[str, bool]:
     sanitized = re.sub(r'[\u200B-\u200D\uFEFF]', '', user_input)
     return sanitized.strip(), is_suspicious
 
+_resource_lock = threading.Lock()
+
 def get_resources():
     global _chroma_client, _collection, _embedding_model
-    if _embedding_model is None:
-        logger.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
-        try:
-            _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME, local_files_only=True)
-        except Exception:
-            _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    with _resource_lock:
+        if _embedding_model is None:
+            logger.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
+            try:
+                _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME, local_files_only=True)
+            except Exception:
+                _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
 
-    if _chroma_client is None:
-        logger.info(f"Connecting to ChromaDB at: {CHROMA_PERSIST_DIR}")
-        _chroma_client = chromadb.PersistentClient(path=str(CHROMA_PERSIST_DIR))
-        _collection = _chroma_client.get_collection(name=COLLECTION_NAME)
+        if _chroma_client is None:
+            logger.info(f"Connecting to ChromaDB at: {CHROMA_PERSIST_DIR}")
+            _chroma_client = chromadb.PersistentClient(path=str(CHROMA_PERSIST_DIR))
+            _collection = _chroma_client.get_collection(name=COLLECTION_NAME)
 
     return _embedding_model, _collection
 
@@ -327,7 +336,7 @@ _gemini_quota_exceeded = False
 
 _gemini_quota_exceeded = False
 
-def call_llm(prompt: str, system_instruction: str = "", max_output_tokens: int = 400, timeout_seconds: float = 4.0) -> tuple[str, str]:
+def call_llm(prompt: str, system_instruction: str = "", max_output_tokens: int = 400, timeout_seconds: float = 4.0, force_gemini: bool = False) -> tuple[str, str]:
     """
     Fast LLM completion with Groq API primary and httpx-bounded Gemini REST API fallback.
     Returns (output_text, provider_used).
@@ -336,7 +345,7 @@ def call_llm(prompt: str, system_instruction: str = "", max_output_tokens: int =
     gemini_key = os.getenv("GEMINI_API_KEY")
 
     # 1. Primary: Groq API
-    if groq_key:
+    if groq_key and not force_gemini:
         t_g0 = time.perf_counter()
         try:
             url = "https://api.groq.com/openai/v1/chat/completions"
@@ -347,7 +356,7 @@ def call_llm(prompt: str, system_instruction: str = "", max_output_tokens: int =
             messages.append({"role": "user", "content": prompt})
 
             payload = {
-                "model": "openai/gpt-oss-20b",
+                "model": "llama3-8b-8192",
                 "messages": messages,
                 "temperature": 0.2,
                 "max_tokens": max_output_tokens
@@ -406,37 +415,54 @@ def call_llm(prompt: str, system_instruction: str = "", max_output_tokens: int =
 
     return "", "none"
 
-def translate_answer(verified_english_answer: str, target_language: str) -> tuple[str | None, str]:
-    """
-    Translates ONLY the prose explanation of the verified English answer into target_language.
-    Preserves Act names, section/article numbers, and proper legal identifiers in original English.
-    """
-    if not verified_english_answer or not target_language:
-        return None, "none"
-
+def translate_structured_response(response: QueryResponse, target_language: str) -> QueryResponse:
+    if not target_language or target_language.strip().lower() in ["english", "en"]:
+        return response
+        
     tl_clean = target_language.strip()
-    if tl_clean.lower() in ["english", "en"]:
-        return None, "none"
-
-    fixed_note = "\n\n*Note: This translation is provided for convenience. The English version above is authoritative in case of any discrepancy.*"
-
+    
+    fields_to_translate = {
+        "answer": response.answer
+    }
+    
+    if response.structured_content:
+        sc = response.structured_content
+        if sc.summary: fields_to_translate["summary"] = sc.summary
+        if sc.assessment: fields_to_translate["assessment"] = sc.assessment
+        if sc.core_verdict: fields_to_translate["core_verdict"] = sc.core_verdict
+        if sc.verdict: fields_to_translate["verdict"] = sc.verdict
+        if sc.outcome: fields_to_translate["outcome"] = sc.outcome
+    
     system_instruction = (
-        f"You are an expert legal translator for the Ministry of Ayush.\n"
-        f"Translate the provided verified legal answer into {tl_clean}.\n\n"
-        "STRICT TRANSLATION RULES:\n"
-        f"1. Translate ONLY the explanatory prose into natural, professional, grammatically accurate {tl_clean}.\n"
-        "2. DO NOT translate: Act names (e.g. 'Patents Act, 1970', 'Drugs and Cosmetics Act, 1940', 'Biological Diversity Act, 2002'), section/article numbers (e.g. 'Section 3(p)', 'Section 3(a)', 'Article 27'), or statutory citations — keep them in their original English form.\n"
-        "3. Preserve markdown formatting, bold text markers, lists, and line breaks exactly.\n"
-        "4. Output ONLY the translated text without conversational preamble or meta-commentary."
+        f"You are an expert legal translator. Translate the given JSON fields into {tl_clean}.\n"
+        "RULES:\n"
+        "1. Preserve legal meaning exactly. Do not change conditional words (may/potentially/subject to) into absolutes.\n"
+        "2. Do not translate: Act names (e.g. Patents Act), sections/articles, URLs, citations, document identifiers, patent/case numbers, assessment status, confidence.\n"
+        "3. Output ONLY a valid JSON object where the keys exactly match the input JSON, and the values are the translated text.\n"
     )
-
-    prompt = f"English Legal Answer to Translate:\n{verified_english_answer}"
-
-    translated_text, provider = call_llm(prompt, system_instruction, max_output_tokens=1200)
-    if translated_text:
-        return translated_text.strip() + fixed_note, provider
-
-    return verified_english_answer.strip() + fixed_note, "fallback"
+    
+    prompt = f"INPUT JSON TO TRANSLATE:\n{json.dumps(fields_to_translate, ensure_ascii=False)}"
+    
+    try:
+        content, _ = call_llm(prompt, system_instruction, max_output_tokens=2048, timeout_seconds=10.0, force_gemini=False)
+        if content:
+            # Clean possible markdown blocks
+            content = re.sub(r"^```json\s*", "", content)
+            content = re.sub(r"\s*```$", "", content)
+            
+            translated_dict = json.loads(content)
+            if "answer" in translated_dict:
+                response.answer = translated_dict["answer"]
+            if response.structured_content:
+                if "summary" in translated_dict: response.structured_content.summary = translated_dict["summary"]
+                if "assessment" in translated_dict: response.structured_content.assessment = translated_dict["assessment"]
+                if "core_verdict" in translated_dict: response.structured_content.core_verdict = translated_dict["core_verdict"]
+                if "verdict" in translated_dict: response.structured_content.verdict = translated_dict["verdict"]
+                if "outcome" in translated_dict: response.structured_content.outcome = translated_dict["outcome"]
+    except Exception as e:
+        logger.warning(f"Translation API failed: {e}")
+        
+    return response
 
 def translate_ui_texts(req: TranslateUIRequest) -> TranslateUIResponse:
     """
@@ -763,14 +789,101 @@ def classify_intent_hybrid(question: str) -> str:
 
 def detect_and_resolve_intent_context(question: str, session: SessionContext, user_jurisdiction: str) -> dict:
     """
-    Comprehensive Semantic Intent Resolver:
-    Classifies inputs into SYSTEM_META, DOMAIN_LEGAL_IP, DOMAIN_PRODUCT,
-    FOLLOW_UP, CLARIFY, OUT_OF_SCOPE, PROMPT_INJECTION, and GREETING.
-    Enforces deterministic routing without brittle exact-match question lists.
+    Comprehensive Semantic Intent Resolver.
+    Uses structured LLM output for non-English queries to extract intent and canonical_query.
     """
     q_clean = question.strip()
+    is_non_english = any(ord(char) > 127 for char in q_clean)
+    
+    input_lang_str = "English"
+    llm_called_flag = False
+    
+    if is_non_english:
+        prompt = (
+            "You are a legal intent resolver. The user has provided a question in a regional language.\n"
+            "Analyze the question and return a valid JSON object EXACTLY matching this schema:\n"
+            "{\n"
+            '  "input_language": "Language of original question (e.g. Marathi, Hindi, etc)",\n'
+            '  "canonical_query": "Concise English translation for database search",\n'
+            '  "intent": "One of [patentability, trademark, copyright, design, biodiversity_abs, general_ip, patent_procedure, historical_case]",\n'
+            '  "goal": "One of [patentability_assessment, ipr_application, commercial, research, collective_rights, clarify]",\n'
+            '  "product": "Extracted product name (e.g. Chyawanprash, Neem), or empty string",\n'
+            '  "jurisdiction": "One of [India, US, International] or empty string"\n'
+            "}\n"
+            "Output ONLY valid JSON.\n\n"
+            f"User Question: {q_clean}"
+        )
+        llm_out, _ = call_llm(prompt, max_output_tokens=300, timeout_seconds=6.0, force_gemini=False)
+        llm_called_flag = True
+        try:
+            import json
+            logger.info(f"Raw LLM Intent Output: {llm_out}")
+            
+            # Clean possible markdown blocks
+            clean_out = re.sub(r"^```(?:json)?\s*", "", llm_out.strip())
+            clean_out = re.sub(r"\s*```$", "", clean_out)
+            
+            json_match = re.search(r"\{.*\}", clean_out, re.DOTALL)
+            if json_match:
+                parsed = json.loads(json_match.group(0))
+                if "canonical_query" in parsed and parsed["canonical_query"]:
+                    sub_intent = parsed.get("intent", "patentability")
+                    goal = parsed.get("goal", "")
+                    
+                    if goal == "clarify" or sub_intent == "clarify":
+                        return {
+                            "intent": "CLARIFY",
+                            "domain_sub_intent": "clarify",
+                            "requires_retrieval": False,
+                            "requires_session": False,
+                            "requires_clarification": True,
+                            "blocked": False,
+                            "is_follow_up": False,
+                            "is_ambiguous": True,
+                            "resolved_query": parsed["canonical_query"],
+                            "resolved_jurisdiction": parsed.get("jurisdiction") or user_jurisdiction,
+                            "product": parsed.get("product", ""),
+                            "ip_type": "general",
+                            "user_goal": "clarify",
+                            "person_entity_category": "unspecified",
+                            "activity": "unspecified",
+                            "purpose": "unspecified",
+                            "context_used": False,
+                            "llm_called": True,
+                            "input_language": parsed.get("input_language", "Unknown"),
+                            "clarification_prompt": ""
+                        }
+                    
+                    return {
+                        "intent": "DOMAIN_LEGAL_IP",
+                        "domain_sub_intent": sub_intent,
+                        "requires_retrieval": True,
+                        "requires_session": False,
+                        "requires_clarification": False,
+                        "blocked": False,
+                        "is_follow_up": False,
+                        "is_ambiguous": False,
+                        "resolved_query": parsed["canonical_query"],
+                        "resolved_jurisdiction": parsed.get("jurisdiction") or user_jurisdiction,
+                        "product": parsed.get("product", ""),
+                        "ip_type": "trademark" if sub_intent == "trademark" else "patent",
+                        "user_goal": goal,
+                        "person_entity_category": "unspecified",
+                        "activity": "unspecified",
+                        "purpose": "unspecified",
+                        "context_used": False,
+                        "llm_called": True,
+                        "input_language": parsed.get("input_language", "Unknown"),
+                        "clarification_prompt": ""
+                    }
+        except Exception as e:
+            logger.warning(f"Failed to parse structured intent JSON: {e}")
+            raise ValueError(f"Technical failure in parsing regional language query: {e}")
+            
+        # JSON invalid or missing, technical failure
+        raise ValueError("Failed to obtain valid JSON intent for regional query.")
 
-    # 0. Safe Shorthand and Typo Normalization (semantically unambiguous)
+    # -- ENGLISH DETERMINISTIC LOGIC BELOW --
     q_norm = q_clean
     q_norm = re.sub(r"\bpatnt\b", "patent", q_norm, flags=re.IGNORECASE)
     q_norm = re.sub(r"\bpay\s+tent\b", "patent", q_norm, flags=re.IGNORECASE)
@@ -1453,17 +1566,17 @@ def generate_clarification_response(
     Clarification Response for underspecified / ambiguous queries without active session.
     """
     total_ms = (time.perf_counter() - t_start) * 1000
+    
+    title = "Clarification Requested"
+    body = "Please clarify what specific Ayurvedic product, formulation, or legal goal (e.g. patent application, trademark, or NBA approval) you are asking about."
+    
     answer = resolution.get(
         "clarification_prompt",
-        (
-            "**Clarification Requested**\n\n"
-            "### What information is needed?\n"
-            "Could you please specify which Ayurvedic product, formulation, or legal goal (e.g., patent application, trademark, or NBA approval) you are asking about?\n\n"
-            "### Example:\n"
-            "• *'Can I patent a classical formulation like Chyawanprash in India?'*\n"
-            "• *'What documents are required for NBA approval to export Ashwagandha?'*"
-        )
+        f"**{title}**\n\n{body}"
     )
+    if "CLARIFY_FALLBACK" in answer:
+        answer = f"**{title}**\n\n{body}"
+        
     return QueryResponse(
         answer=answer,
         confidence="Low",
@@ -3282,49 +3395,6 @@ def is_doc_cited_in_answer(answer_text: str, doc_metadata: dict) -> bool:
 
     return False
 
-def extract_query_intent(question: str) -> str:
-    """
-    Translates/normalizes question intent to English for vector embedding & intent classification.
-    Uses deterministic dictionary/regex rules first for fast zero-LLM translation,
-    falling back to call_llm only when non-English text is genuinely unrecognized.
-    """
-    if not question:
-        return ""
-
-    # If question is already pure English, NEVER clobber or alter its specific legal scope!
-    if not any(ord(char) > 127 for char in question):
-        return question.strip()
-
-    q_lower = question.strip().lower()
-
-    # Fast deterministic rules for known Hindi/Marathi patterns
-    if any(kw in q_lower for kw in ["नीम", "कडुनिंब", "neem"]):
-        if any(kw in q_lower for kw in ["मामले", "प्रकरणात", "केस", "revoked", "case"]):
-            return "What happened in the Neem patent revocation case?"
-
-    if any(kw in q_lower for kw in ["एनबीए", "nba"]):
-        return "Do I need NBA approval for Indian biological resources under Biological Diversity Act?"
-
-    if any(kw in q_lower for kw in ["च्यवनप्राश", "chawanprash", "chyawanprash"]):
-        if any(kw in q_lower for kw in ["पेटेंट", "पेटंट", "patent"]):
-            if any(kw in q_lower for kw in ["दस्तावेज", "कागदपत्रे", "documents", "process", "प्रक्रिया"]):
-                return "What documents are required for filing a patent application in India?"
-            return "Can I patent a classical Ayurvedic formulation like Chyawanprash in India?"
-
-    if any(kw in q_lower for kw in ["धारा 3", "3(p)", "धारा 3(p)"]):
-        return "Does Section 3(p) of the Patents Act prevent patenting traditional knowledge?"
-
-    if any(kw in q_lower for kw in ["पेटेंट कर सकता", "पेटंट घेता येईल", "पेटेंट करा"]):
-        return "Can I patent a classical Ayurvedic formulation in India?"
-
-    if any(kw in q_lower for kw in ["दस्तावेज", "कागदपत्रे"]) and any(kw in q_lower for kw in ["पेटेंट", "पेटंट"]):
-        return "What documents are required for filing a patent application in India?"
-
-    if any(kw in q_lower for kw in ["क्या उत्तर दे सकते", "क्या मदद कर सकते", "क्षमताएं क्या हैं", "काय मदत करू शकता"]):
-        return "What can you answer me?"
-
-    if not any(ord(char) > 127 for char in question):
-        return question
 
     prompt = f"Translate the following user question into concise English search intent for an Ayurvedic IP legal database. Return ONLY the English search query:\n\n{question}"
     translated, _ = call_llm(prompt, max_output_tokens=100, timeout_seconds=3.0)
@@ -3381,12 +3451,6 @@ def process_query(req: QueryRequest) -> QueryResponse:
                 }
             )
 
-        current_stage = 'Query Translation & Normalization'
-        # 1. Multilingual Query Normalization to English
-        t_trans_0 = time.perf_counter()
-        normalized_q = extract_query_intent(sanitized_q)
-        translation_ms = (time.perf_counter() - t_trans_0) * 1000
-
         current_stage = 'Session Context Lookup'
         t_sess_0 = time.perf_counter()
         session_id = req.session_id or f"sess_{uuid.uuid4().hex[:8]}"
@@ -3395,8 +3459,11 @@ def process_query(req: QueryRequest) -> QueryResponse:
 
         current_stage = 'Context Resolution & Intent Detection'
         t_int_0 = time.perf_counter()
-        resolution = detect_and_resolve_intent_context(normalized_q, session, req.jurisdiction)
+        resolution = detect_and_resolve_intent_context(sanitized_q, session, req.jurisdiction)
         intent_ms = (time.perf_counter() - t_int_0) * 1000
+        
+        normalized_q = resolution.get("resolved_query", sanitized_q)
+        translation_ms = 0.0
         if resolution.get("llm_called"):
             llm_call_count += 1
 
@@ -3616,7 +3683,8 @@ def process_query(req: QueryRequest) -> QueryResponse:
 
         prompt = f"Jurisdiction Focus: {resolved_jur}\nUser Question: {resolved_q}\n\nRetrieved Legal Context:\n{context_str}"
 
-        llm_output, gen_provider = call_llm(prompt, system_instruction, max_output_tokens=750, timeout_seconds=10.0)
+        use_gemini = (target_lang_str != "English")
+        llm_output, gen_provider = call_llm(prompt, system_instruction, max_output_tokens=750, timeout_seconds=10.0, force_gemini=use_gemini)
         if gen_provider != "none":
             llm_call_count += 1
 
@@ -3814,20 +3882,24 @@ def process_query(req: QueryRequest) -> QueryResponse:
         status_val: Literal["OK", "ABSTAIN", "CLARIFY"] = "ABSTAIN" if should_abstain else "OK"
 
         if should_abstain:
-            llm_output = (
-                "**Abstention Notice — Insufficient Authoritative Evidence**\n\n"
-                "### What does the result mean?\n"
-                "I don't have sufficient authoritative evidence to support a legal conclusion for this query.\n\n"
-                "### What information is still missing?\n"
-                "The specific jurisdiction, formulation details, or statutory precedent required for this scenario is unavailable in the current legal corpus.\n\n"
-                "### What should the user do next?\n"
-                "Please specify the jurisdiction (India vs International) or consult a licensed legal professional."
-            )
-            structured_content = StructuredOutput(intent=intent, assessment="Abstention Notice — Insufficient Authoritative Evidence")
+            title = "Abstention Notice — Insufficient Authoritative Evidence"
+            body = "I do not have sufficient authoritative Indian/International IP legal context or statutory evidence to confidently answer your specific query."
+            llm_output = f"**{title}**\n\n{body}"
+            structured_content = StructuredOutput(intent=intent, assessment=f"{title}")
 
-        current_stage = 'Presentation-Layer Translation'
+        current_stage = 'Response Generation'
         t_trans_out_0 = time.perf_counter()
         translated_output = None
+        
+        # Check if the generated response already contains Devanagari 
+        # (which shouldn't happen unless the LLM hallucinated despite instructions)
+        is_hindi_marathi = req.target_language and req.target_language.strip().capitalize() in ["Hindi", "Marathi"]
+        if is_hindi_marathi and llm_output:
+            devanagari_chars = re.findall(r'[\u0900-\u097F]', llm_output)
+            if len(devanagari_chars) > 100:
+                logger.warning("Primary LLM ignored instructions and generated non-English response natively.")
+                # We do not attempt to fix here. The dedicated translation API will handle it later.
+
         presentation_trans_ms = (time.perf_counter() - t_trans_out_0) * 1000
 
         t_ser_0 = time.perf_counter()
@@ -3941,7 +4013,10 @@ def process_query(req: QueryRequest) -> QueryResponse:
             escalate_available=escalate,
             debug_info=debug_data
         )
-
+        
+        if req.target_language and req.target_language.strip().lower() not in ["english", "en"]:
+            response = translate_structured_response(response, req.target_language)
+            
         _query_cache.set(cache_key, response)
         return response
 
